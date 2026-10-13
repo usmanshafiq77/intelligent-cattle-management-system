@@ -1,0 +1,48 @@
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# JavaScript and Expo
+node_modules/
+.expo/
+dist/
+web-build/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local data and generated files
+uploads/
+backups/
+*.log
+*.sqlite
+*.sqlite3
+
+# AI datasets and trained model files
+ai/data/
+ai/artifacts/
+*.pkl
+*.joblib
+*.h5
+*.keras
+*.pt
+*.pth
+*.onnx
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
