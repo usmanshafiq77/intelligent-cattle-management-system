@@ -27,7 +27,7 @@ remain compatible, custom roles grant additive catalog permissions, and
 privileged administration remains restricted to the authoritative active farm
 owner. Database foreign keys prevent cross-farm custom-role assignment.
 
-The audited backend exposes 29 OpenAPI operations over 24 paths and maps nine
+The audited backend exposes 29 OpenAPI operations over 23 paths and maps nine
 SQLAlchemy tables. The complete test result is 90 passed, zero failed, and zero
 skipped against PostgreSQL `icms_test`. The migration chain was exercised from
 base through `d4b7c9e2a105`, downgraded, upgraded again, and removed within a
