@@ -3,8 +3,11 @@ import logging
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
+from app.api.v1.farms import router as farms_router
+from app.api.v1.invitations import router as invitations_router
 
 from app.db.session import engine
+from app.api.v1.auth import router as auth_router
 
 
 logger = logging.getLogger(__name__)
@@ -14,7 +17,9 @@ app = FastAPI(
     description="Backend API for the ICMS mobile and web application.",
     version="0.1.0",
 )
-
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(farms_router, prefix="/api/v1")
+app.include_router(invitations_router,prefix="/api/v1",)
 
 @app.get("/", tags=["General"])
 def root():

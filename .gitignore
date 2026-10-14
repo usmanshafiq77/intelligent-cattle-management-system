@@ -27,9 +27,32 @@ yarn-error.log*
 # Local data and generated files
 uploads/
 backups/
+db_dumps/
+database_dumps/
+*.dump
+*.backup
+*.bak
+*.sql.gz
 *.log
 *.sqlite
 *.sqlite3
+
+# Private keys and local certificate bundles
+*.key
+*.pem
+*.p12
+*.pfx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Temporary editor files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
 
 # AI datasets and trained model files
 ai/data/

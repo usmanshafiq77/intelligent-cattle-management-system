@@ -1,7 +1,8 @@
+
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,6 +15,12 @@ class Settings(BaseSettings):
     DB_NAME: str = "icms_db"
     DB_USER: str = "icms_app"
     DB_PASSWORD: SecretStr
+
+    JWT_SECRET_KEY: SecretStr
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(
+        default=30,
+        gt=0,
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",
