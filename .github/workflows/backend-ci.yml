@@ -1,0 +1,149 @@
+name: Backend CI
+
+on:
+  push:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+  pull_request:
+    paths:
+      - "backend/**"
+      - ".github/workflows/backend-ci.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_DB: icms_test
+          POSTGRES_USER: icms_app
+          POSTGRES_PASSWORD: ci-only-postgres-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U icms_app -d icms_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    defaults:
+      run:
+        working-directory: backend
+
+    env:
+      APP_ENV: test
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: icms_test
+      DB_USER: icms_app
+      DB_PASSWORD: ci-only-postgres-password
+      TEST_DATABASE_URL: postgresql+psycopg://icms_app:ci-only-postgres-password@127.0.0.1:5432/icms_test
+      JWT_SECRET_KEY: ci-only-jwt-secret-with-at-least-thirty-two-characters
+      EMAIL_DELIVERY_MODE: memory
+      AUTH_RATE_LIMIT_ENABLED: "false"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements-dev.txt
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Verify isolated PostgreSQL target and ownership
+        run: |
+          python - <<'PY'
+          import os
+
+          from sqlalchemy import create_engine, text
+          from sqlalchemy.engine import make_url
+
+          url = make_url(os.environ["TEST_DATABASE_URL"])
+          assert url.drivername.startswith("postgresql")
+          assert url.database == "icms_test"
+          assert url.database != "icms_db"
+          engine = create_engine(url, pool_pre_ping=True)
+          with engine.connect() as connection:
+              database = connection.scalar(text("SELECT current_database()"))
+              user = connection.scalar(text("SELECT current_user"))
+              owner = connection.scalar(
+                  text(
+                      "SELECT pg_get_userbyid(datdba) "
+                      "FROM pg_database WHERE datname = current_database()"
+                  )
+              )
+          engine.dispose()
+          assert database == "icms_test"
+          assert user == url.username == "icms_app"
+          assert owner == "icms_app"
+          print("Verified disposable database icms_test owned by icms_app")
+          PY
+
+      - name: Compile backend Python
+        run: python -m compileall -q app tests alembic
+
+      - name: Verify imports, OpenAPI, and SQLAlchemy metadata
+        run: |
+          python - <<'PY'
+          import app.models  # noqa: F401
+          from app.db.base import Base
+          from app.main import app
+
+          specification = app.openapi()
+          methods = {"get", "post", "put", "patch", "delete"}
+          operations = sum(
+              1
+              for item in specification["paths"].values()
+              for method in item
+              if method in methods
+          )
+          assert len(specification["paths"]) == 32
+          assert operations == 45
+          assert len(Base.metadata.tables) == 14
+          print("Verified 32 paths, 45 operations, and 14 tables")
+          PY
+
+      - name: Verify Alembic revision chain
+        run: |
+          python - <<'PY'
+          from alembic.config import Config
+          from alembic.script import ScriptDirectory
+
+          script = ScriptDirectory.from_config(Config("alembic.ini"))
+          revisions = [
+              revision.revision
+              for revision in reversed(list(script.walk_revisions()))
+          ]
+          assert revisions == [
+              "b9f8ee48d20d",
+              "c3a1f5e8d9b2",
+              "d4b7c9e2a105",
+              "e6f1a2b3c4d5",
+          ]
+          assert script.get_heads() == ["e6f1a2b3c4d5"]
+          print("Verified linear Alembic chain through e6f1a2b3c4d5")
+          PY
+
+      - name: Run migration lifecycle tests
+        run: >-
+          pytest -q
+          tests/test_rbac_migration.py
+          tests/test_cattle_migration.py
+
+      - name: Run complete backend test suite
+        run: pytest -q
