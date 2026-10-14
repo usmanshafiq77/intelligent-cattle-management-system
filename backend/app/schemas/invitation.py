@@ -5,7 +5,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
 
-from app.models.farm_member import FarmRole
+from app.models.farm_member import FarmRole, MemberStatus
 from app.models.invitation import InvitationStatus
 
 
@@ -26,5 +26,18 @@ class InvitationResponse(BaseModel):
     status: InvitationStatus
     expires_at: datetime
 
-    # Development testing only
-    invitation_token: str
+    # Present only in local development and automated tests.
+    invitation_token: str | None = None
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=512)
+
+
+class InvitationAcceptanceResponse(BaseModel):
+    farm_id: UUID
+    farm_name: str
+    membership_id: UUID
+    role: FarmRole
+    membership_status: MemberStatus
+    accepted_at: datetime

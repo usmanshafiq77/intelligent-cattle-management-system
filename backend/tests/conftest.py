@@ -49,9 +49,18 @@ class SentVerification:
     expires_at: datetime
 
 
+@dataclass
+class SentInvitation:
+    recipient: str
+    token: str
+    expires_at: datetime
+    farm_name: str
+
+
 class MemoryEmailSender:
     def __init__(self) -> None:
         self.messages: list[SentVerification] = []
+        self.invitation_messages: list[SentInvitation] = []
 
     def send_verification_email(
         self,
@@ -62,6 +71,18 @@ class MemoryEmailSender:
     ) -> None:
         self.messages.append(
             SentVerification(recipient, token, expires_at)
+        )
+
+    def send_invitation_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+        expires_at: datetime,
+        farm_name: str,
+    ) -> None:
+        self.invitation_messages.append(
+            SentInvitation(recipient, token, expires_at, farm_name)
         )
 
 

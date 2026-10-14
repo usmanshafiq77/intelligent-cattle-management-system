@@ -16,6 +16,7 @@ from app.models.farm import Farm
 from app.models.farm_member import FarmMember, FarmRole, MemberStatus
 from app.models.invitation import Invitation, InvitationStatus
 from app.models.user import User
+from app.services.email_delivery import get_email_sender
 from app.services.invitations import (
     InvitationAcceptanceError,
     get_redeemable_invitation,
@@ -94,6 +95,7 @@ def test_invalid_role_and_owner_elevation_are_rejected(client, db_session):
 def test_duplicate_pending_invitation_returns_409_and_hashes_token(
     client,
     db_session,
+    memory_email_sender,
 ):
     owner = create_user(db_session, email="duplicate-owner@example.com")
     farm = create_owned_farm(db_session, owner=owner)
@@ -112,6 +114,11 @@ def test_duplicate_pending_invitation_returns_409_and_hashes_token(
     assert invitation.token_hash == hashlib.sha256(
         raw_token.encode("utf-8")
     ).hexdigest()
+    assert len(memory_email_sender.invitation_messages) == 1
+    delivered = memory_email_sender.invitation_messages[0]
+    assert delivered.recipient == "staff@example.com"
+    assert delivered.token == raw_token
+    assert delivered.farm_name == farm.name
 
 
 def test_expired_pending_invitation_is_expired_before_replacement(
@@ -219,7 +226,10 @@ def test_invitation_acceptance_guard_requires_verified_matching_identity(
             )
 
 
-def test_concurrent_pending_invitations_allow_only_one(pg_engine):
+def test_concurrent_pending_invitations_allow_only_one(
+    pg_engine,
+    memory_email_sender,
+):
     unique = uuid.uuid4().hex
     setup = Session(pg_engine, expire_on_commit=False)
     owner = create_user(setup, email=f"owner-{unique}@example.com")
@@ -239,6 +249,9 @@ def test_concurrent_pending_invitations_allow_only_one(pg_engine):
             session.close()
 
     app.dependency_overrides[get_db] = override_db
+    app.dependency_overrides[get_email_sender] = (
+        lambda: memory_email_sender
+    )
     test_client = TestClient(app)
     headers = authorization_header(owner)
 

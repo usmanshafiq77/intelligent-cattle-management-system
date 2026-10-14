@@ -19,6 +19,15 @@ class EmailSender(Protocol):
         expires_at: datetime,
     ) -> None: ...
 
+    def send_invitation_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+        expires_at: datetime,
+        farm_name: str,
+    ) -> None: ...
+
 
 class EmailDeliveryNotConfiguredError(RuntimeError):
     pass
@@ -54,6 +63,23 @@ class DevelopmentConsoleEmailSender:
             _mask_email(recipient),
             expires_at.isoformat(),
             verification_url,
+        )
+
+    def send_invitation_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+        expires_at: datetime,
+        farm_name: str,
+    ) -> None:
+        logger.warning(
+            "LOCAL DEVELOPMENT ONLY: invitation token for %s to farm %s "
+            "(expires %s): %s",
+            _mask_email(recipient),
+            farm_name,
+            expires_at.isoformat(),
+            token,
         )
 
 

@@ -46,7 +46,22 @@ one-time token to `POST /api/v1/auth/verify-email` as JSON:
 Verification and invitation tokens are generated with `secrets`, stored only as
 SHA-256 hashes, expire, and are single-use. The invitation acceptance guard also
 requires the authenticated user's normalized email to match a verified identity.
-No invitation-acceptance HTTP endpoint is added in this phase.
+
+## Invitation acceptance
+
+`POST /api/v1/invitations/accept` requires an active authenticated user and a
+verified email address. The raw token is hashed before lookup, and the matching
+invitation row is locked until the transaction completes. Acceptance also locks
+the farm, verifies that the inviter is still the authoritative active owner,
+rejects owner-role elevation and every pre-existing membership state, creates an
+ACTIVE membership with the invitation's exact role, and marks the invitation
+ACCEPTED with a UTC timestamp. Membership creation and token consumption commit
+together, so concurrent replays produce exactly one successful request.
+
+Invitation creation uses the existing email-delivery abstraction. Automated
+tests use the in-memory sender, local development may use console delivery, and
+raw invitation tokens are omitted from API responses outside local/test
+environments. A production email provider remains deployment configuration.
 
 In local development, `EMAIL_DELIVERY_MODE=console` writes the one-time
 verification link to local server logs. This mode is refused outside the
