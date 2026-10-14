@@ -44,3 +44,5 @@ implementation status and roadmap are in
 [docs/ICMS_FULL_PROJECT_STATUS_REPORT.md](docs/ICMS_FULL_PROJECT_STATUS_REPORT.md).
 The Step 16 cattle-module handover is in
 [docs/STEP_16_CATTLE_MODULE_REPORT.md](docs/STEP_16_CATTLE_MODULE_REPORT.md).
+The post-Step-16 router refactoring and PostgreSQL CI validation are documented
+in [docs/STEP_16_5_MAINTENANCE_REPORT.md](docs/STEP_16_5_MAINTENANCE_REPORT.md).
