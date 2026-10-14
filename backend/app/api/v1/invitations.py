@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
@@ -26,6 +26,7 @@ from app.services.invitations import (
     InvitationAcceptanceError,
     MembershipAlreadyExistsError,
     accept_invitation,
+    expire_stale_farm_invitations,
     expire_stale_pending_invitations,
     generate_invitation_token,
 )
@@ -62,6 +63,51 @@ def _send_invitation_email(
             "Invitation delivery failed for invitation %s",
             invitation.id,
         )
+
+
+def _response_token(raw_token: str) -> str | None:
+    environment = get_settings().APP_ENV.strip().lower()
+    return raw_token if environment in {"development", "local", "test"} else None
+
+
+def _invitation_response(
+    invitation: Invitation, *, raw_token: str | None = None
+) -> InvitationResponse:
+    return InvitationResponse(
+        id=invitation.id,
+        farm_id=invitation.farm_id,
+        email=invitation.email,
+        role=invitation.role,
+        status=invitation.status,
+        expires_at=invitation.expires_at,
+        created_at=invitation.created_at,
+        accepted_at=invitation.accepted_at,
+        invitation_token=(
+            _response_token(raw_token) if raw_token is not None else None
+        ),
+    )
+
+
+def _farm_invitation_or_404(
+    db: Session,
+    *,
+    farm_id: UUID,
+    invitation_id: UUID,
+    lock: bool = False,
+) -> Invitation:
+    statement = select(Invitation).where(
+        Invitation.id == invitation_id,
+        Invitation.farm_id == farm_id,
+    )
+    if lock:
+        statement = statement.with_for_update()
+    invitation = db.scalar(statement)
+    if invitation is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found",
+        )
+    return invitation
 
 
 @router.post(
@@ -169,22 +215,178 @@ def create_invitation(
         farm_name=owner_access.farm.name,
     )
 
-    environment = get_settings().APP_ENV.strip().lower()
-    response_token = (
-        raw_token
-        if environment in {"development", "local", "test"}
-        else None
+    return _invitation_response(
+        invitation,
+        raw_token=raw_token,
     )
 
-    return InvitationResponse(
-        id=invitation.id,
-        farm_id=invitation.farm_id,
-        email=invitation.email,
-        role=invitation.role,
-        status=invitation.status,
-        expires_at=invitation.expires_at,
-        invitation_token=response_token,
+
+@router.get(
+    "/farms/{farm_id}/invitations",
+    response_model=list[InvitationResponse],
+    response_model_exclude_none=True,
+)
+def list_invitations(
+    farm_id: UUID,
+    invitation_status: InvitationStatus | None = Query(
+        default=None, alias="status"
+    ),
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    owner_access: FarmAccess = Depends(require_farm_owner),
+    db: Session = Depends(get_db),
+):
+    expire_stale_farm_invitations(
+        db, farm_id=farm_id, now=datetime.now(timezone.utc)
     )
+    db.commit()
+    statement = select(Invitation).where(Invitation.farm_id == farm_id)
+    if invitation_status is not None:
+        statement = statement.where(Invitation.status == invitation_status)
+    invitations = db.scalars(
+        statement.order_by(Invitation.created_at.desc(), Invitation.id)
+        .limit(limit)
+        .offset(offset)
+    )
+    return [_invitation_response(invitation) for invitation in invitations]
+
+
+@router.get(
+    "/farms/{farm_id}/invitations/{invitation_id}",
+    response_model=InvitationResponse,
+    response_model_exclude_none=True,
+)
+def get_invitation(
+    farm_id: UUID,
+    invitation_id: UUID,
+    owner_access: FarmAccess = Depends(require_farm_owner),
+    db: Session = Depends(get_db),
+):
+    invitation = _farm_invitation_or_404(
+        db, farm_id=farm_id, invitation_id=invitation_id
+    )
+    if (
+        invitation.status == InvitationStatus.PENDING
+        and invitation.expires_at <= datetime.now(timezone.utc)
+    ):
+        invitation.status = InvitationStatus.EXPIRED
+        db.commit()
+    return _invitation_response(invitation)
+
+
+@router.post(
+    "/farms/{farm_id}/invitations/{invitation_id}/revoke",
+    response_model=InvitationResponse,
+    response_model_exclude_none=True,
+)
+def revoke_invitation(
+    farm_id: UUID,
+    invitation_id: UUID,
+    owner_access: FarmAccess = Depends(require_farm_owner),
+    db: Session = Depends(get_db),
+):
+    invitation = _farm_invitation_or_404(
+        db, farm_id=farm_id, invitation_id=invitation_id, lock=True
+    )
+    if (
+        invitation.status == InvitationStatus.PENDING
+        and invitation.expires_at <= datetime.now(timezone.utc)
+    ):
+        invitation.status = InvitationStatus.EXPIRED
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Expired invitations cannot be revoked",
+        )
+    if invitation.status != InvitationStatus.PENDING:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Only pending invitations can be revoked",
+        )
+    invitation.status = InvitationStatus.REVOKED
+    db.commit()
+    return _invitation_response(invitation)
+
+
+@router.post(
+    "/farms/{farm_id}/invitations/{invitation_id}/reissue",
+    response_model=InvitationResponse,
+    response_model_exclude_none=True,
+    status_code=status.HTTP_201_CREATED,
+)
+def reissue_invitation(
+    farm_id: UUID,
+    invitation_id: UUID,
+    owner_access: FarmAccess = Depends(require_farm_owner),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    email_sender: EmailSender = Depends(get_email_sender),
+):
+    original = _farm_invitation_or_404(
+        db, farm_id=farm_id, invitation_id=invitation_id, lock=True
+    )
+    if original.status in {
+        InvitationStatus.ACCEPTED,
+        InvitationStatus.REJECTED,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Accepted or rejected invitations cannot be reissued",
+        )
+
+    now = datetime.now(timezone.utc)
+    if original.status == InvitationStatus.PENDING:
+        original.status = (
+            InvitationStatus.EXPIRED
+            if original.expires_at <= now
+            else InvitationStatus.REVOKED
+        )
+        db.flush()
+
+    other_pending = db.scalar(
+        select(Invitation.id).where(
+            Invitation.farm_id == farm_id,
+            Invitation.id != original.id,
+            func.lower(func.btrim(Invitation.email))
+            == normalize_email(original.email),
+            Invitation.status == InvitationStatus.PENDING,
+        )
+    )
+    if other_pending is not None:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An active invitation already exists",
+        )
+
+    raw_token, token_hash = generate_invitation_token()
+    replacement = Invitation(
+        farm_id=farm_id,
+        invited_by_id=current_user.id,
+        email=normalize_email(original.email),
+        role=original.role,
+        token_hash=token_hash,
+        status=InvitationStatus.PENDING,
+        expires_at=now + timedelta(days=7),
+    )
+    try:
+        db.add(replacement)
+        db.commit()
+        db.refresh(replacement)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Invitation conflicts with current farm state",
+        ) from None
+
+    _send_invitation_email(
+        email_sender,
+        invitation=replacement,
+        raw_token=raw_token,
+        farm_name=owner_access.farm.name,
+    )
+    return _invitation_response(replacement, raw_token=raw_token)
 
 
 @router.post(

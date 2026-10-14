@@ -41,6 +41,11 @@ class FarmMember(Base):
             "user_id",
             name="uq_farm_members_farm_user",
         ),
+        UniqueConstraint(
+            "id",
+            "farm_id",
+            name="uq_farm_members_id_farm",
+        ),
         CheckConstraint(
             "role <> 'FARM_OWNER' OR status = 'ACTIVE'",
             name="ck_farm_members_owner_is_active",

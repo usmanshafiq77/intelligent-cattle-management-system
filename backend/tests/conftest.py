@@ -36,6 +36,8 @@ from app.core.rate_limit import auth_rate_limiter  # noqa: E402
 from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
+from app.core.permissions import PERMISSION_CODES  # noqa: E402
+from app.models.rbac import PermissionRecord  # noqa: E402
 from app.services.email_delivery import get_email_sender  # noqa: E402
 
 
@@ -147,6 +149,21 @@ def pg_engine():
 
     try:
         Base.metadata.create_all(engine)
+        with engine.begin() as connection:
+            connected_database = connection.scalar(
+                text("SELECT current_database()")
+            )
+            connected_schema = connection.scalar(
+                text("SELECT current_schema()")
+            )
+            if connected_database != "icms_test":
+                pytest.fail("Test engine is not connected to icms_test")
+            if connected_schema != schema_name:
+                pytest.fail("Test engine did not select its disposable schema")
+            connection.execute(
+                PermissionRecord.__table__.insert(),
+                [{"code": code} for code in sorted(PERMISSION_CODES)],
+            )
         yield engine
     finally:
         engine.dispose()

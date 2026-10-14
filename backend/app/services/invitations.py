@@ -58,6 +58,23 @@ def expire_stale_pending_invitations(
     )
 
 
+def expire_stale_farm_invitations(
+    db: Session,
+    *,
+    farm_id,
+    now: datetime,
+) -> None:
+    db.execute(
+        update(Invitation)
+        .where(
+            Invitation.farm_id == farm_id,
+            Invitation.status == InvitationStatus.PENDING,
+            Invitation.expires_at <= now,
+        )
+        .values(status=InvitationStatus.EXPIRED)
+    )
+
+
 def get_redeemable_invitation(
     db: Session,
     *,

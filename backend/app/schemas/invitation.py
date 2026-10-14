@@ -25,6 +25,8 @@ class InvitationResponse(BaseModel):
     role: FarmRole
     status: InvitationStatus
     expires_at: datetime
+    created_at: datetime | None = None
+    accepted_at: datetime | None = None
 
     # Present only in local development and automated tests.
     invitation_token: str | None = None
