@@ -32,4 +32,7 @@ with role-based access and AI-assisted decision support.
 
 ## Current status
 
-Initial project setup. Application features are not yet implemented.
+The backend includes authentication, email verification, farm management,
+owner-authorized staff invitations, PostgreSQL migrations, and isolated
+security tests. See [docs/security-foundation.md](docs/security-foundation.md)
+for migration prechecks, local email testing, and rate-limit deployment notes.

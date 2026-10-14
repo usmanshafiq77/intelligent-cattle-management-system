@@ -3,14 +3,14 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from app.models.farm_member import FarmRole
 from app.models.invitation import InvitationStatus
 
 
 class InvitationCreate(BaseModel):
-    email: EmailStr
+    email: EmailStr = Field(max_length=254)
     role: Literal[
         "FARM_MANAGER",
         "WORKER",

@@ -1,10 +1,7 @@
 
-from uuid import UUID
-
 from fastapi import (
     APIRouter,
     Depends,
-    HTTPException,
     status,
 )
 from sqlalchemy import select
@@ -12,6 +9,10 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.v1.auth import get_current_user
+from app.api.dependencies.farms import (
+    FarmAccess,
+    require_active_farm_member,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.models.farm import Farm
@@ -64,6 +65,7 @@ def create_farm(
         )
 
         db.add(owner_membership)
+        db.flush()
 
         # Save both records in one transaction
         db.commit()
@@ -108,29 +110,6 @@ def get_my_farms(
     response_model=FarmResponse,
 )
 def get_farm(
-    farm_id: UUID,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    access: FarmAccess = Depends(require_active_farm_member),
 ):
-    statement = (
-        select(Farm)
-        .join(
-            FarmMember,
-            FarmMember.farm_id == Farm.id,
-        )
-        .where(
-            Farm.id == farm_id,
-            FarmMember.user_id == current_user.id,
-            FarmMember.status == MemberStatus.ACTIVE,
-        )
-    )
-
-    farm = db.scalar(statement)
-
-    if farm is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Farm not found",
-        )
-
-    return farm
+    return access.farm

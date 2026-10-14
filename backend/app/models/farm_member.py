@@ -4,11 +4,14 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -37,6 +40,18 @@ class FarmMember(Base):
             "farm_id",
             "user_id",
             name="uq_farm_members_farm_user",
+        ),
+        CheckConstraint(
+            "role <> 'FARM_OWNER' OR status = 'ACTIVE'",
+            name="ck_farm_members_owner_is_active",
+        ),
+        Index(
+            "uq_farm_members_one_active_owner",
+            "farm_id",
+            unique=True,
+            postgresql_where=text(
+                "role = 'FARM_OWNER' AND status = 'ACTIVE'"
+            ),
         ),
     )
 

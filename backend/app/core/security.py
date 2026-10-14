@@ -1,5 +1,6 @@
 
 from datetime import datetime, timedelta, timezone
+from functools import lru_cache
 from uuid import UUID
 
 import jwt
@@ -23,6 +24,26 @@ def verify_password(
         plain_password,
         hashed_password,
     )
+
+
+@lru_cache(maxsize=1)
+def _dummy_password_hash() -> str:
+    return hash_password("ICMS timing equalization value")
+
+
+def verify_password_safely(
+    plain_password: str,
+    hashed_password: str | None,
+) -> bool:
+    """Perform Argon2 work even when an account does not exist."""
+    candidate_hash = hashed_password or _dummy_password_hash()
+
+    try:
+        matches = verify_password(plain_password, candidate_hash)
+    except Exception:
+        matches = False
+
+    return hashed_password is not None and matches
 
 
 def create_access_token(user_id: UUID) -> str:

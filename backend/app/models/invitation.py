@@ -4,11 +4,14 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import (
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     String,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
@@ -93,4 +96,18 @@ class Invitation(Base):
     accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "role <> 'FARM_OWNER'",
+            name="ck_invitations_no_owner_role",
+        ),
+        Index(
+            "uq_invitations_pending_farm_email",
+            "farm_id",
+            func.lower(func.btrim(email)),
+            unique=True,
+            postgresql_where=text("status = 'PENDING'"),
+        ),
     )

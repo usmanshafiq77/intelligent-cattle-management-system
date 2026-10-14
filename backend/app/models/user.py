@@ -1,6 +1,7 @@
 
 import enum
 import uuid
+from datetime import datetime
 
 from sqlalchemy import (
     String,
@@ -59,6 +60,11 @@ class User(Base):
         nullable=False,
     )
 
+    email_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
     created_at: Mapped[DateTime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
@@ -71,3 +77,7 @@ class User(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    @property
+    def is_email_verified(self) -> bool:
+        return self.email_verified_at is not None
