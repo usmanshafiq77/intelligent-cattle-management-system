@@ -130,7 +130,7 @@ def test_flexible_rbac_migration_lifecycle_and_tenant_constraint():
                 inspect(connection).get_table_names()
             )
             connection.rollback()
-            command.upgrade(config, "head")
+            command.upgrade(config, "d4b7c9e2a105")
             assert connection.scalar(
                 text("SELECT version_num FROM alembic_version")
             ) == "d4b7c9e2a105"

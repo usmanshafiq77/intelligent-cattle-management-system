@@ -50,6 +50,12 @@ class Settings(BaseSettings):
     EMAIL_VERIFICATION_BASE_URL: str = (
         "http://localhost:8765/api/v1/auth/verify-email"
     )
+    MEDIA_ROOT: Path = BACKEND_DIR / "uploads"
+    CATTLE_MEDIA_MAX_BYTES: int = Field(
+        default=10 * 1024 * 1024,
+        gt=0,
+        le=10 * 1024 * 1024,
+    )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

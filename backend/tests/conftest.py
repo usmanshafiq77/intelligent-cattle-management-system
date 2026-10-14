@@ -37,11 +37,31 @@ from app.db.base import Base  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 from app.core.permissions import PERMISSION_CODES  # noqa: E402
+from app.models.cattle import Breed, Species  # noqa: E402
 from app.models.rbac import PermissionRecord  # noqa: E402
 from app.services.email_delivery import get_email_sender  # noqa: E402
+from app.services.media_storage import (  # noqa: E402
+    LocalMediaStorage,
+    get_media_storage,
+)
 
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL")
+
+TEST_BREEDS = [
+    {
+        "id": uuid.UUID("15a83daf-5c4a-5cb9-8bed-5a4e7ea1e035"),
+        "species": Species.CATTLE,
+        "name": "Holstein",
+        "normalized_name": "holstein",
+    },
+    {
+        "id": uuid.UUID("7e9a2385-f882-51c4-9940-c9c9fb2ea34e"),
+        "species": Species.BUFFALO,
+        "name": "Nili-Ravi",
+        "normalized_name": "nili-ravi",
+    },
+]
 
 
 @dataclass
@@ -164,6 +184,7 @@ def pg_engine():
                 PermissionRecord.__table__.insert(),
                 [{"code": code} for code in sorted(PERMISSION_CODES)],
             )
+            connection.execute(Breed.__table__.insert(), TEST_BREEDS)
         yield engine
     finally:
         engine.dispose()
@@ -199,12 +220,15 @@ def memory_email_sender():
 
 
 @pytest.fixture
-def client(db_session, memory_email_sender):
+def client(db_session, memory_email_sender, tmp_path):
     def override_db():
         yield db_session
 
     app.dependency_overrides[get_db] = override_db
     app.dependency_overrides[get_email_sender] = lambda: memory_email_sender
+    app.dependency_overrides[get_media_storage] = lambda: LocalMediaStorage(
+        tmp_path / "media"
+    )
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
