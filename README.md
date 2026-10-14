@@ -35,8 +35,12 @@ with role-based access and AI-assisted decision support.
 The backend includes authentication, email verification, farm management,
 owner-authorized staff invitations, secure invitation acceptance and membership
 activation, staff administration, farm-scoped custom roles, centralized
-permission evaluation, PostgreSQL migrations, and isolated security tests. See
+permission evaluation, cattle registration and profile management, structured
+breed data, lifecycle and weight history, secure cattle media handling,
+PostgreSQL migrations, and isolated security tests. See
 [docs/security-foundation.md](docs/security-foundation.md) for migration
 prechecks, local email testing, and rate-limit deployment notes. The audited
 implementation status and roadmap are in
 [docs/ICMS_FULL_PROJECT_STATUS_REPORT.md](docs/ICMS_FULL_PROJECT_STATUS_REPORT.md).
+The Step 16 cattle-module handover is in
+[docs/STEP_16_CATTLE_MODULE_REPORT.md](docs/STEP_16_CATTLE_MODULE_REPORT.md).
