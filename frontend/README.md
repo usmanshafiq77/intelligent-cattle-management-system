@@ -1,8 +1,9 @@
 # ICMS Mobile
 
 React Native mobile client for the Intelligent Cattle Management System. Step
-19.1 establishes an Expo Router, JavaScript-only foundation; it does not contain
-mock authentication or fake database integration.
+19.2 adds the shared visual language and reusable interface primitives on top
+of the Expo Router, JavaScript-only foundation. The showcase uses labelled
+sample content only; it does not simulate authentication or database access.
 
 ## Requirements
 
@@ -21,6 +22,9 @@ cd D:\ICMS_Project\frontend
 npm.cmd install
 Copy-Item .env.example .env
 npm.cmd run validate
+npm.cmd run doctor
+npm.cmd run export:web
+npm.cmd run bundle:android
 ```
 
 Do not place credentials, JWTs, database URLs, or private keys in any
@@ -61,29 +65,62 @@ npm.cmd run bundle:android
 ```text
 app/                    Expo Router route files and layouts
 src/api/                Generic FastAPI HTTP client
-src/components/         Reusable presentation components
+src/components/ui/      Reusable, accessible interface primitives
 src/config/             Environment and runtime configuration
 src/features/           Domain-owned UI, hooks, validation, and API functions
 src/navigation/         Shared route names and navigation policy
 src/services/           Cross-domain device and infrastructure services
 src/state/              Cross-feature application/session state
-tests/                  Static architecture and configuration checks
+src/theme/              Themes, tokens, variants, and motion preferences
+tests/                  Architecture, theme-contract, and component tests
 ```
 
 Domain boundaries are reserved for authentication, farms, permissions, cattle,
 health, and milk. Future breeding, feed, finance, reports, and marketplace
 features should follow the same feature-local structure.
 
-The root screen is intentionally a neutral Step 19.1 placeholder. Real
+The root screen is a development showcase for the design system. Real
 authentication and domain workflows belong to later approved substeps.
+
+## Design system
+
+Three persisted themes are available: Emerald (default), Midnight, and Indigo.
+`ThemeProvider` restores the selected theme from AsyncStorage, validates stored
+values, and rolls back an optimistic change if persistence fails. Application
+code should consume `useTheme()` rather than importing theme colors directly.
+
+The shared primitives include buttons, inputs, cards, statistic cards, status
+badges, skeletons, inline feedback, full feedback states, confirmation dialogs,
+and reduced-motion-aware entrance animation. Their size and color variants come
+from `src/theme`; feature screens should avoid duplicating those contracts.
+
+- Interactive controls retain a minimum 44-point touch target.
+- Inputs expose labels, hints, validation alerts, password visibility controls,
+  and keyboard focus treatment.
+- Buttons announce busy and disabled state to assistive technology.
+- Status variants meet WCAG AA contrast in every supplied theme.
+- Responsive containers cap wide layouts while remaining fluid on phones.
+- Motion utilities respect the operating system reduce-motion preference.
+
+Run the focused component and contract checks with:
+
+```powershell
+npm.cmd run test:ui
+npm.cmd run test:structure
+```
+
+The web export is emitted to `dist/web` and the Android bundle check to
+`dist/android`; both paths are ignored build artifacts.
 
 ## Dependency notes
 
-Use `npx.cmd expo-doctor` and `npm.cmd run check:dependencies` before upgrading
-Expo packages. Do not use `npm audit fix --force`: at the Step 19.1 checkpoint,
-npm proposes incompatible Expo downgrades/upgrades for transitive Metro, Router,
-and Expo CLI advisories. Expo Doctor is the compatibility authority for this
-SDK line, while the advisories remain an upgrade-planning item.
+Use `npm.cmd run doctor` and `npm.cmd run check:dependencies` before upgrading
+Expo packages. Do not use `npm audit fix --force`: at the Step 19.2 checkpoint,
+the production-tree audit reports 60 transitive findings (15 moderate, 45 high)
+through Expo CLI, Router, Metro, React Native, and their build tooling. npm's
+suggested forced resolutions cross supported Expo versions. Expo Doctor is the
+compatibility authority for this SDK line, while these advisories remain a
+tracked SDK-upgrade item; none are dismissed or force-fixed here.
 
 Official references:
 
