@@ -37,7 +37,9 @@ owner-authorized staff invitations, secure invitation acceptance and membership
 activation, staff administration, farm-scoped custom roles, centralized
 permission evaluation, cattle registration and profile management, structured
 breed data, lifecycle and weight history, secure cattle media handling,
-PostgreSQL migrations, and isolated security tests. See
+health encounters, diagnoses, vaccination planning and administration,
+treatments, medication events, veterinary visits, audited corrections, derived
+health reminders, PostgreSQL migrations, and isolated security tests. See
 [docs/security-foundation.md](docs/security-foundation.md) for migration
 prechecks, local email testing, and rate-limit deployment notes. The audited
 implementation status and roadmap are in
@@ -46,3 +48,7 @@ The Step 16 cattle-module handover is in
 [docs/STEP_16_CATTLE_MODULE_REPORT.md](docs/STEP_16_CATTLE_MODULE_REPORT.md).
 The post-Step-16 router refactoring and PostgreSQL CI validation are documented
 in [docs/STEP_16_5_MAINTENANCE_REPORT.md](docs/STEP_16_5_MAINTENANCE_REPORT.md).
+The Step 17 implementation is documented in
+[docs/STEP_17_HEALTH_VACCINATION_REPORT.md](docs/STEP_17_HEALTH_VACCINATION_REPORT.md),
+and the current evidence-based roadmap is in
+[docs/ICMS_PROJECT_PROGRESS_AND_AUDIT.md](docs/ICMS_PROJECT_PROGRESS_AND_AUDIT.md).
