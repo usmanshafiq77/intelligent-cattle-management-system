@@ -1,3 +1,4 @@
+
 name: Backend CI
 
 on:
@@ -65,6 +66,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+          python -m pip check
 
       - name: Verify isolated PostgreSQL target and ownership
         run: |
@@ -75,24 +77,38 @@ jobs:
           from sqlalchemy.engine import make_url
 
           url = make_url(os.environ["TEST_DATABASE_URL"])
+
           assert url.drivername.startswith("postgresql")
           assert url.database == "icms_test"
           assert url.database != "icms_db"
+
           engine = create_engine(url, pool_pre_ping=True)
+
           with engine.connect() as connection:
-              database = connection.scalar(text("SELECT current_database()"))
-              user = connection.scalar(text("SELECT current_user"))
+              database = connection.scalar(
+                  text("SELECT current_database()")
+              )
+              user = connection.scalar(
+                  text("SELECT current_user")
+              )
               owner = connection.scalar(
                   text(
                       "SELECT pg_get_userbyid(datdba) "
-                      "FROM pg_database WHERE datname = current_database()"
+                      "FROM pg_database "
+                      "WHERE datname = current_database()"
                   )
               )
+
           engine.dispose()
+
           assert database == "icms_test"
           assert user == url.username == "icms_app"
           assert owner == "icms_app"
-          print("Verified disposable database icms_test owned by icms_app")
+
+          print(
+              "Verified disposable database icms_test "
+              "owned by icms_app"
+          )
           PY
 
       - name: Compile backend Python
@@ -102,21 +118,50 @@ jobs:
         run: |
           python - <<'PY'
           import app.models  # noqa: F401
+
           from app.db.base import Base
           from app.main import app
 
           specification = app.openapi()
-          methods = {"get", "post", "put", "patch", "delete"}
+
+          methods = {
+              "get",
+              "post",
+              "put",
+              "patch",
+              "delete",
+          }
+
           operations = sum(
               1
               for item in specification["paths"].values()
               for method in item
               if method in methods
           )
-          assert len(specification["paths"]) == 50
-          assert operations == 70
-          assert len(Base.metadata.tables) == 22
-          print("Verified 50 paths, 70 operations, and 22 tables")
+
+          api_paths = len(specification["paths"])
+          database_tables = len(Base.metadata.tables)
+
+          print(f"API paths: {api_paths}")
+          print(f"API operations: {operations}")
+          print(f"SQLAlchemy tables: {database_tables}")
+
+          assert api_paths == 63, (
+              f"Expected 63 API paths, found {api_paths}"
+          )
+
+          assert operations == 87, (
+              f"Expected 87 API operations, found {operations}"
+          )
+
+          assert database_tables == 26, (
+              f"Expected 26 tables, found {database_tables}"
+          )
+
+          print(
+              "Verified Step 18: "
+              "63 paths, 87 operations, and 26 tables"
+          )
           PY
 
       - name: Verify Alembic revision chain
@@ -125,20 +170,37 @@ jobs:
           from alembic.config import Config
           from alembic.script import ScriptDirectory
 
-          script = ScriptDirectory.from_config(Config("alembic.ini"))
+          config = Config("alembic.ini")
+          script = ScriptDirectory.from_config(config)
+
           revisions = [
               revision.revision
-              for revision in reversed(list(script.walk_revisions()))
+              for revision in reversed(
+                  list(script.walk_revisions())
+              )
           ]
-          assert revisions == [
+
+          expected_revisions = [
               "b9f8ee48d20d",
               "c3a1f5e8d9b2",
               "d4b7c9e2a105",
               "e6f1a2b3c4d5",
               "f7a2b3c4d5e6",
+              "a8b3c4d5e6f7",
           ]
-          assert script.get_heads() == ["f7a2b3c4d5e6"]
-          print("Verified linear Alembic chain through f7a2b3c4d5e6")
+
+          assert revisions == expected_revisions, (
+              f"Unexpected revision chain: {revisions}"
+          )
+
+          assert script.get_heads() == [
+              "a8b3c4d5e6f7"
+          ], "Unexpected Alembic head"
+
+          print(
+              "Verified linear Alembic chain "
+              "through a8b3c4d5e6f7"
+          )
           PY
 
       - name: Run migration lifecycle tests
@@ -147,6 +209,10 @@ jobs:
           tests/test_rbac_migration.py
           tests/test_cattle_migration.py
           tests/test_health_migration.py
+          tests/test_milk_migration.py
+
+      - name: Run milk concurrency tests
+        run: pytest -q tests/test_milk_concurrency.py
 
       - name: Run complete backend test suite
         run: pytest -q
