@@ -13,7 +13,8 @@ transaction-rolled-back write-path application smoke checks pass.
 
 Verified source state:
 
-- Branch/remote SHA: `3b423ca4d3492f26480e31737243646a6045548f`.
+- Implementation/CI workflow baseline SHA:
+  `3b423ca4d3492f26480e31737243646a6045548f`.
 - Linear Alembic head: `a8b3c4d5e6f7`.
 - 26 SQLAlchemy tables; four are Step 18 milk tables.
 - 37 permission codes; five new granular milk codes.
@@ -21,6 +22,8 @@ Verified source state:
 - 184 tests passed, 0 failed, 0 skipped; one deprecation warning.
 - Python 3.13.14 compilation and dependency checks passed.
 - Live `icms_db` is at `a8b3c4d5e6f7` with 27 tables and 37 permissions.
+- GitHub Backend CI run `38748394381` passed for finalization commit
+  `bb5dcadcfe0608dbccbbb5faf10f92a4d0978ee3`.
 
 ## Audit method
 

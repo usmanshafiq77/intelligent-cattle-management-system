@@ -119,7 +119,10 @@ data-extraction foundation, not a trained model or prediction claim.
 - Warnings: one known Starlette/httpx test-client deprecation.
 - OpenAPI: 63 paths, 87 operations.
 - SQLAlchemy metadata: 26 tables (four new milk tables).
-- Local and remote branch SHA: `3b423ca4d3492f26480e31737243646a6045548f`.
+- Implementation/CI workflow baseline SHA:
+  `3b423ca4d3492f26480e31737243646a6045548f`.
+- GitHub Backend CI run `38748394381` completed successfully for Step 18
+  finalization commit `bb5dcadcfe0608dbccbbb5faf10f92a4d0978ee3`.
 
 The concurrency suite proves that two independent PostgreSQL transactions using
 the production lock convention serialize overlapping lactation creation. It is
