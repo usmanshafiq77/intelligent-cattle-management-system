@@ -26,7 +26,7 @@ with role-based access and AI-assisted decision support.
 ## Repository structure
 
 - backend: API and database implementation
-- frontend: Mobile and web application
+- frontend: Expo/React Native mobile application
 - ai: Model training and evaluation
 - docs: Project documentation
 
@@ -39,7 +39,10 @@ permission evaluation, cattle registration and profile management, structured
 breed data, lifecycle and weight history, secure cattle media handling,
 health encounters, diagnoses, vaccination planning and administration,
 treatments, medication events, veterinary visits, audited corrections, derived
-health reminders, PostgreSQL migrations, and isolated security tests. See
+health reminders, milk production and quality management, PostgreSQL
+migrations, and isolated security tests. The JavaScript Expo Router frontend
+foundation is available in [`frontend`](frontend), with local setup and Android
+network instructions in [`frontend/README.md`](frontend/README.md). See
 [docs/security-foundation.md](docs/security-foundation.md) for migration
 prechecks, local email testing, and rate-limit deployment notes. The audited
 implementation status and roadmap are in
