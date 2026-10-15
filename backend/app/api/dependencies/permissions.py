@@ -24,6 +24,14 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.CATTLE_UPDATE,
             Permission.HEALTH_VIEW,
             Permission.HEALTH_MANAGE,
+            Permission.HEALTH_CREATE,
+            Permission.HEALTH_DIAGNOSIS,
+            Permission.HEALTH_VACCINATION_MANAGE,
+            Permission.HEALTH_VACCINATION_ADMINISTER,
+            Permission.HEALTH_TREATMENT_MANAGE,
+            Permission.HEALTH_MEDICATION_ADMINISTER,
+            Permission.HEALTH_VISIT_MANAGE,
+            Permission.HEALTH_AUDIT_VIEW,
             Permission.MILK_VIEW,
             Permission.MILK_RECORD,
             Permission.MILK_MANAGE,
@@ -51,10 +59,31 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.CATTLE_VIEW,
             Permission.HEALTH_VIEW,
             Permission.HEALTH_MANAGE,
+            Permission.HEALTH_CREATE,
+            Permission.HEALTH_DIAGNOSIS,
+            Permission.HEALTH_VACCINATION_MANAGE,
+            Permission.HEALTH_VACCINATION_ADMINISTER,
+            Permission.HEALTH_TREATMENT_MANAGE,
+            Permission.HEALTH_MEDICATION_ADMINISTER,
+            Permission.HEALTH_VISIT_MANAGE,
+            Permission.HEALTH_AUDIT_VIEW,
             Permission.BREEDING_VIEW,
         }
     ),
 }
+
+HEALTH_MANAGE_IMPLIED_PERMISSIONS = frozenset(
+    {
+        Permission.HEALTH_CREATE,
+        Permission.HEALTH_DIAGNOSIS,
+        Permission.HEALTH_VACCINATION_MANAGE,
+        Permission.HEALTH_VACCINATION_ADMINISTER,
+        Permission.HEALTH_TREATMENT_MANAGE,
+        Permission.HEALTH_MEDICATION_ADMINISTER,
+        Permission.HEALTH_VISIT_MANAGE,
+        Permission.HEALTH_AUDIT_VIEW,
+    }
+)
 
 
 def get_effective_permissions(
@@ -88,6 +117,8 @@ def get_effective_permissions(
         )
     )
     permissions.update(Permission(code) for code in custom_codes)
+    if Permission.HEALTH_MANAGE in permissions:
+        permissions.update(HEALTH_MANAGE_IMPLIED_PERMISSIONS)
     return frozenset(permissions)
 
 

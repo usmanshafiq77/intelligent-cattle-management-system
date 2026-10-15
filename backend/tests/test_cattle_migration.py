@@ -62,11 +62,6 @@ def test_cattle_migration_upgrade_downgrade_and_tenant_constraints():
                 "cattle_lifecycle_events",
                 "cattle_media",
             } <= tables
-            migration_context = MigrationContext.configure(
-                connection, opts={"compare_type": True}
-            )
-            assert compare_metadata(migration_context, Base.metadata) == []
-
             user_a, user_b = uuid.uuid4(), uuid.uuid4()
             farm_a, farm_b, cattle_a = uuid.uuid4(), uuid.uuid4(), uuid.uuid4()
             for user_id, suffix in ((user_a, "a"), (user_b, "b")):
@@ -122,7 +117,11 @@ def test_cattle_migration_upgrade_downgrade_and_tenant_constraints():
             command.upgrade(config, "head")
             assert connection.scalar(
                 text("SELECT version_num FROM alembic_version")
-            ) == "e6f1a2b3c4d5"
+            ) == "f7a2b3c4d5e6"
+            migration_context = MigrationContext.configure(
+                connection, opts={"compare_type": True}
+            )
+            assert compare_metadata(migration_context, Base.metadata) == []
             connection.rollback()
             command.downgrade(config, "base")
     finally:

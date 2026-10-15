@@ -4,13 +4,13 @@ import json
 from app.main import app
 
 
-STEP_16_OPENAPI_SHA256 = (
-    "d8eed575e1b1f1263597b61a5456434c6631025ee494f5f8a2dfea36d79631ac"
+STEP_17_OPENAPI_SHA256 = (
+    "8cc081366b42147d5f3961828fe8e2796fcafe5fd2e240f318a32c204cbb942b"
 )
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
 
-def test_step_16_openapi_contract_is_unchanged():
+def test_step_17_openapi_contract_is_unchanged():
     """Require an explicit review before changing the published API contract."""
     specification = app.openapi()
     canonical = json.dumps(
@@ -25,6 +25,6 @@ def test_step_16_openapi_contract_is_unchanged():
         if method in HTTP_METHODS
     )
 
-    assert len(specification["paths"]) == 32
-    assert operation_count == 45
-    assert hashlib.sha256(canonical).hexdigest() == STEP_16_OPENAPI_SHA256
+    assert len(specification["paths"]) == 50
+    assert operation_count == 70
+    assert hashlib.sha256(canonical).hexdigest() == STEP_17_OPENAPI_SHA256

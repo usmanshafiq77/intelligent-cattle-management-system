@@ -15,6 +15,9 @@ from app.core.permissions import PERMISSION_CODES
 pytestmark = pytest.mark.integration
 
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+STEP_16_PERMISSION_CODES = {
+    code for code in PERMISSION_CODES if not code.startswith("health.")
+} | {"health.view", "health.manage"}
 
 
 def test_flexible_rbac_migration_lifecycle_and_tenant_constraint():
@@ -62,8 +65,8 @@ def test_flexible_rbac_migration_lifecycle_and_tenant_constraint():
             ) == "d4b7c9e2a105"
             assert connection.scalar(
                 text("SELECT count(*) FROM permissions")
-            ) == len(PERMISSION_CODES)
-            assert set(PERMISSION_CODES) == set(
+            ) == len(STEP_16_PERMISSION_CODES)
+            assert STEP_16_PERMISSION_CODES == set(
                 connection.scalars(text("SELECT code FROM permissions"))
             )
 

@@ -112,10 +112,10 @@ jobs:
               for method in item
               if method in methods
           )
-          assert len(specification["paths"]) == 32
-          assert operations == 45
-          assert len(Base.metadata.tables) == 14
-          print("Verified 32 paths, 45 operations, and 14 tables")
+          assert len(specification["paths"]) == 50
+          assert operations == 70
+          assert len(Base.metadata.tables) == 22
+          print("Verified 50 paths, 70 operations, and 22 tables")
           PY
 
       - name: Verify Alembic revision chain
@@ -134,9 +134,10 @@ jobs:
               "c3a1f5e8d9b2",
               "d4b7c9e2a105",
               "e6f1a2b3c4d5",
+              "f7a2b3c4d5e6",
           ]
-          assert script.get_heads() == ["e6f1a2b3c4d5"]
-          print("Verified linear Alembic chain through e6f1a2b3c4d5")
+          assert script.get_heads() == ["f7a2b3c4d5e6"]
+          print("Verified linear Alembic chain through f7a2b3c4d5e6")
           PY
 
       - name: Run migration lifecycle tests
@@ -144,6 +145,7 @@ jobs:
           pytest -q
           tests/test_rbac_migration.py
           tests/test_cattle_migration.py
+          tests/test_health_migration.py
 
       - name: Run complete backend test suite
         run: pytest -q

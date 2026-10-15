@@ -8,6 +8,7 @@ from app.api.v1.invitations import router as invitations_router
 from app.api.v1.roles import router as roles_router
 from app.api.v1.staff import router as staff_router
 from app.api.v1.cattle import breed_router, cattle_router
+from app.api.v1.health import router as health_router
 
 from app.db.session import engine
 from app.api.v1.auth import router as auth_router
@@ -27,6 +28,7 @@ app.include_router(staff_router, prefix="/api/v1")
 app.include_router(roles_router, prefix="/api/v1")
 app.include_router(breed_router, prefix="/api/v1")
 app.include_router(cattle_router, prefix="/api/v1")
+app.include_router(health_router, prefix="/api/v1")
 
 @app.get("/", tags=["General"])
 def root():
