@@ -40,6 +40,15 @@ from app.models.health import (
     VeterinaryVisit,
     VeterinaryVisitStatus,
 )
+from app.models.milk import (
+    LactationStatus,
+    MilkCorrectionTarget,
+    MilkLactation,
+    MilkQualityMeasurement,
+    MilkRecordCorrection,
+    MilkingSession,
+    MilkingSessionKind,
+)
 
 
 __all__ = [
@@ -59,6 +68,13 @@ __all__ = [
     "VaccinationScheduleStatus",
     "VeterinaryVisit",
     "VeterinaryVisitStatus",
+    "LactationStatus",
+    "MilkCorrectionTarget",
+    "MilkLactation",
+    "MilkQualityMeasurement",
+    "MilkRecordCorrection",
+    "MilkingSession",
+    "MilkingSessionKind",
     "FarmCustomRole",
     "FarmRolePermission",
     "FarmMemberRole",

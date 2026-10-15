@@ -35,6 +35,11 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.MILK_VIEW,
             Permission.MILK_RECORD,
             Permission.MILK_MANAGE,
+            Permission.MILK_LACTATION_MANAGE,
+            Permission.MILK_QUALITY_MANAGE,
+            Permission.MILK_CORRECT,
+            Permission.MILK_ANALYTICS_VIEW,
+            Permission.MILK_BULK_CREATE,
             Permission.FEED_VIEW,
             Permission.FEED_MANAGE,
             Permission.BREEDING_VIEW,
@@ -50,6 +55,7 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.HEALTH_VIEW,
             Permission.MILK_VIEW,
             Permission.MILK_RECORD,
+            Permission.MILK_BULK_CREATE,
             Permission.FEED_VIEW,
         }
     ),
@@ -67,6 +73,7 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.HEALTH_MEDICATION_ADMINISTER,
             Permission.HEALTH_VISIT_MANAGE,
             Permission.HEALTH_AUDIT_VIEW,
+            Permission.MILK_VIEW,
             Permission.BREEDING_VIEW,
         }
     ),
@@ -82,6 +89,16 @@ HEALTH_MANAGE_IMPLIED_PERMISSIONS = frozenset(
         Permission.HEALTH_MEDICATION_ADMINISTER,
         Permission.HEALTH_VISIT_MANAGE,
         Permission.HEALTH_AUDIT_VIEW,
+    }
+)
+
+MILK_MANAGE_IMPLIED_PERMISSIONS = frozenset(
+    {
+        Permission.MILK_LACTATION_MANAGE,
+        Permission.MILK_QUALITY_MANAGE,
+        Permission.MILK_CORRECT,
+        Permission.MILK_ANALYTICS_VIEW,
+        Permission.MILK_BULK_CREATE,
     }
 )
 
@@ -119,6 +136,8 @@ def get_effective_permissions(
     permissions.update(Permission(code) for code in custom_codes)
     if Permission.HEALTH_MANAGE in permissions:
         permissions.update(HEALTH_MANAGE_IMPLIED_PERMISSIONS)
+    if Permission.MILK_MANAGE in permissions:
+        permissions.update(MILK_MANAGE_IMPLIED_PERMISSIONS)
     return frozenset(permissions)
 
 
