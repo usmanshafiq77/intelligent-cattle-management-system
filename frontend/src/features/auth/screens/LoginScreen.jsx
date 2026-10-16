@@ -2,20 +2,20 @@ import { Keyboard, View } from "react-native";
 import { useRef, useState } from "react";
 
 import { authApi } from "../../../api/auth";
-import { setAccessToken } from "../../../api/authTransport";
 import { AppButton } from "../../../components/ui/AppButton";
 import { AppInput } from "../../../components/ui/AppInput";
 import { InlineFeedback } from "../../../components/ui/InlineFeedback";
 import { useAppTheme } from "../../../theme/ThemeProvider";
 import { authErrorMessage, authFieldErrors } from "../authErrors";
 import { requireLoginResponse } from "../authContracts";
+import { useOptionalAuth } from "../context/AuthProvider";
 import { AuthLayout } from "../components/AuthLayout";
 import { AuthSuccessState } from "../components/AuthSuccessState";
 import { AuthSwitchPrompt } from "../components/AuthSwitchPrompt";
 import { useAuthSubmission } from "../hooks/useAuthSubmission";
 import { loginPayload, validateLogin } from "../validation/authValidation";
 
-export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSetter = setAccessToken }) {
+export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSetter, completeLogin }) {
   const { spacing } = useAppTheme();
   const passwordRef = useRef(null);
   const [values, setValues] = useState({ email: "", password: "" });
@@ -23,6 +23,8 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
   const [feedback, setFeedback] = useState(null);
   const [signedIn, setSignedIn] = useState(false);
   const { submitting, run } = useAuthSubmission();
+  const auth = useOptionalAuth();
+  const completeSession = completeLogin || auth?.completeLogin;
 
   const update = (field, value) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -44,7 +46,9 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
     setFeedback(null);
     const result = await run(async (signal) => {
       const response = await api.login(loginPayload(values), { signal });
+      if (completeSession) return completeSession(response);
       const contract = requireLoginResponse(response);
+      if (typeof tokenSetter !== "function") throw new Error("Authentication session handling is unavailable.");
       await tokenSetter(contract.accessToken);
       return contract;
     });
@@ -64,8 +68,8 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
       {signedIn ? (
         <AuthSuccessState
           title="Login successful"
-          message="Your access token is active in memory for this app session."
-          detail="Secure session persistence and authenticated destination routing are introduced in Step 19.6."
+          message="Your session credentials have been accepted securely."
+          detail="Session restoration and authenticated destination routing are introduced in later Step 19.6 work."
           primaryTitle="Return to Welcome"
           onPrimary={onBack}
         />

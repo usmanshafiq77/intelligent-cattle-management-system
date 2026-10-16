@@ -1,7 +1,7 @@
 import { apiClient } from "./client";
 import { apiRoutes } from "./routes";
 
-/** Authentication transport only. Persistent secure token storage is introduced in Step 19.6. */
+/** Authentication API contracts; secure token storage is configured by AuthProvider. */
 export const authApi = Object.freeze({
   register: (payload, options) => apiClient.post(apiRoutes.auth.register, { ...options, auth: false, json: payload }),
   login: (payload, options) => apiClient.post(apiRoutes.auth.login, { ...options, auth: false, json: payload }),

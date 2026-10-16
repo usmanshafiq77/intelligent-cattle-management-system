@@ -12,6 +12,7 @@ export function configureAuthTokenProvider(nextProvider) {
     throw new TypeError("An authentication token provider must implement getToken().");
   }
   provider = nextProvider;
+  volatileToken = null;
   lastExpiredToken = null;
 }
 

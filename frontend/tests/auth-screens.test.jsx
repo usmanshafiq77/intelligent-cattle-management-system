@@ -3,6 +3,7 @@ import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 import { ApiError } from "../src/api/errors";
 import { LoginScreen } from "../src/features/auth/screens/LoginScreen";
 import { SignupScreen } from "../src/features/auth/screens/SignupScreen";
+import { AuthProvider } from "../src/features/auth/context/AuthProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 
 jest.mock("../src/theme/useAppReducedMotion", () => ({ useAppReducedMotion: () => true }));
@@ -91,6 +92,27 @@ test("login submits normalized JSON, stores only an ephemeral token, and shows h
   expect(JSON.stringify([...debug.mock.calls, ...log.mock.calls])).not.toMatch(/private-token|ValidPassword123/);
   debug.mockRestore();
   log.mockRestore();
+});
+
+test("login hands validated backend response to the central AuthProvider", async () => {
+  const api = { login: jest.fn().mockResolvedValue({ access_token: "provider-token", token_type: "bearer" }) };
+  const transport = {
+    configureAuthTokenProvider: jest.fn(),
+    setAccessToken: jest.fn().mockResolvedValue(undefined),
+    removeAccessToken: jest.fn().mockResolvedValue(undefined),
+  };
+  const provider = { getToken: jest.fn(), setToken: jest.fn(), removeToken: jest.fn() };
+  const screen = render(
+    <ThemeProvider persistPreference={false}>
+      <AuthProvider transport={transport} tokenProvider={provider}>
+        <LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} api={api} />
+      </AuthProvider>
+    </ThemeProvider>,
+  );
+  fillLogin(screen);
+  fireEvent.press(screen.getByTestId("login-submit"));
+  await waitFor(() => expect(screen.getByText("Login successful")).toBeTruthy());
+  expect(transport.setAccessToken).toHaveBeenCalledWith("provider-token");
 });
 
 test("login loading state prevents duplicate submissions", async () => {

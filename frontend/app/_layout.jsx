@@ -3,6 +3,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 
 import { StartupGate } from "../src/navigation/StartupGate";
+import { AuthProvider } from "../src/features/auth/context/AuthProvider";
 import { ThemeProvider, useAppTheme } from "../src/theme/ThemeProvider";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -34,7 +35,9 @@ export function ThemedNavigation() {
 export default function RootLayout() {
   return (
     <ThemeProvider>
-      <ThemedNavigation />
+      <AuthProvider>
+        <ThemedNavigation />
+      </AuthProvider>
     </ThemeProvider>
   );
 }
