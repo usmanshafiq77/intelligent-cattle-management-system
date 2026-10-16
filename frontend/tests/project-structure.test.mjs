@@ -52,6 +52,10 @@ test('required architecture and routes exist', async () => {
     'src/components/brand/BrandMark.jsx',
     'src/components/brand/FarmIntelligenceGraphic.jsx',
     'src/features/onboarding/screens/WelcomeScreen.jsx',
+    'src/features/auth/screens/LoginScreen.jsx',
+    'src/features/auth/screens/SignupScreen.jsx',
+    'src/features/auth/components/AuthLayout.jsx',
+    'src/features/auth/validation/authValidation.js',
     'src/navigation/DevelopmentOnlyRoute.jsx',
     'src/navigation/StartupGate.jsx',
     'src/api/client.js',
@@ -127,4 +131,24 @@ test('authentication transport never persists tokens in AsyncStorage', async () 
   );
 
   assert.ok(sources.every((source) => !source.includes('@react-native-async-storage')));
+});
+
+test('authentication screens contain no insecure persistence or sensitive logging', async () => {
+  const authDirectory = path.join(projectRoot, 'src', 'features', 'auth');
+  const files = (await walk(authDirectory)).filter((file) => /\.(js|jsx)$/.test(file));
+  const sources = await Promise.all(files.map((file) => readFile(file, 'utf8')));
+  const combined = sources.join('\n');
+
+  assert.doesNotMatch(combined, /AsyncStorage|localStorage|sessionStorage/);
+  assert.doesNotMatch(combined, /console\.(log|debug|info|warn|error)/);
+  assert.doesNotMatch(combined, /refresh[_-]?token/i);
+});
+
+test('auth routes render real screens instead of Step 19.4 placeholders', async () => {
+  const loginRoute = await readFile(path.join(projectRoot, 'app', 'auth', 'login.jsx'), 'utf8');
+  const signupRoute = await readFile(path.join(projectRoot, 'app', 'auth', 'signup.jsx'), 'utf8');
+
+  assert.match(loginRoute, /LoginScreen/);
+  assert.match(signupRoute, /SignupScreen/);
+  assert.doesNotMatch(`${loginRoute}\n${signupRoute}`, /AuthComingSoonScreen/);
 });

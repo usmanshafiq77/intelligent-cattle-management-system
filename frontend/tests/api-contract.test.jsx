@@ -29,3 +29,22 @@ test("critical service routes match the reviewed FastAPI paths", () => {
   expect(apiRoutes.healthRecords.history("farm-id", "cow-id")).toBe("/farms/farm-id/health/cattle/cow-id/history");
   expect(apiRoutes.milk.root("farm-id", "analytics")).toBe("/farms/farm-id/milk/analytics");
 });
+
+test("auth form contract remains aligned with the backend schemas and JSON routes", () => {
+  const userSchema = fs.readFileSync(
+    path.resolve(__dirname, "../../backend/app/schemas/user.py"),
+    "utf8",
+  );
+  const authRouter = fs.readFileSync(
+    path.resolve(__dirname, "../../backend/app/api/v1/auth.py"),
+    "utf8",
+  );
+
+  expect(userSchema).toMatch(/class UserRegister[\s\S]*full_name:[\s\S]*min_length=2, max_length=150/);
+  expect(userSchema).toMatch(/class UserRegister[\s\S]*email: EmailStr[\s\S]*max_length=254/);
+  expect(userSchema).toMatch(/class UserRegister[\s\S]*password:[\s\S]*min_length=8, max_length=128/);
+  expect(userSchema).toMatch(/class UserLogin[\s\S]*password:[\s\S]*min_length=1, max_length=128/);
+  expect(userSchema).toMatch(/class TokenResponse[\s\S]*access_token: str[\s\S]*token_type: str/);
+  expect(authRouter).toMatch(/"\/register"[\s\S]*response_model=UserResponse[\s\S]*status_code=status\.HTTP_201_CREATED/);
+  expect(authRouter).toMatch(/"\/login"[\s\S]*response_model=TokenResponse/);
+});

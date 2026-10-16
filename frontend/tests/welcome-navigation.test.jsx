@@ -11,7 +11,6 @@ jest.mock("../src/theme/useAppReducedMotion", () => ({
   useAppReducedMotion: () => true,
 }));
 
-import { AuthComingSoonScreen } from "../src/features/auth/screens/AuthComingSoonScreen";
 import { WelcomeScreen } from "../src/features/onboarding/screens/WelcomeScreen";
 import { DevelopmentOnlyRoute, isDevelopmentRouteEnabled } from "../src/navigation/DevelopmentOnlyRoute";
 import { ROUTES } from "../src/navigation/routes";
@@ -31,7 +30,7 @@ test("the startup welcome screen renders the real ICMS entry content", () => {
   expect(screen.getByLabelText(/Connected farm overview/)).toBeTruthy();
 });
 
-test("Get Started and Log In navigate to honest future auth routes", () => {
+test("Get Started and Log In navigate to the authentication routes", () => {
   const screen = themed(<WelcomeScreen />);
 
   fireEvent.press(screen.getByRole("button", { name: "Get Started" }));
@@ -39,16 +38,6 @@ test("Get Started and Log In navigate to honest future auth routes", () => {
 
   expect(mockPush).toHaveBeenNthCalledWith(1, ROUTES.signup);
   expect(mockPush).toHaveBeenNthCalledWith(2, ROUTES.login);
-});
-
-test.each(["login", "signup"])("%s placeholder is explicit and returns to welcome", (journey) => {
-  const onBack = jest.fn();
-  const screen = themed(<AuthComingSoonScreen journey={journey} onBack={onBack} />);
-
-  expect(screen.getByText("COMING IN STEP 19.5")).toBeTruthy();
-  expect(screen.queryByPlaceholderText(/email|password/i)).toBeNull();
-  fireEvent.press(screen.getByRole("button", { name: "Back to Welcome" }));
-  expect(onBack).toHaveBeenCalledTimes(1);
 });
 
 test("development showcase is rendered only when the development guard is enabled", () => {

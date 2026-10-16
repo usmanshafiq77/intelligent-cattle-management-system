@@ -1,9 +1,9 @@
 # ICMS Mobile
 
-React Native mobile client for the Intelligent Cattle Management System. Step
-19.2 adds the shared visual language and reusable interface primitives on top
-of the Expo Router, JavaScript-only foundation. The showcase uses labelled
-sample content only; it does not simulate authentication or database access.
+React Native mobile client for the Intelligent Cattle Management System. The
+Expo Router, JavaScript-only foundation now includes the shared design system,
+FastAPI integration layer, production entry experience, and real login and
+account-registration forms.
 
 ## Requirements
 
@@ -74,14 +74,17 @@ The app opens on the production welcome experience. Native launch resources are
 configured through Expo Splash Screen and remain visible only while the saved
 theme preference is restored; no artificial startup delay is used.
 
-- `Get Started` opens the clearly labeled Step 19.5 signup placeholder.
-- `Log In` opens the clearly labeled Step 19.5 login placeholder.
+- `Get Started` opens account registration backed by `/api/v1/auth/register`.
+- `Log In` authenticates through `/api/v1/auth/login` and keeps the returned
+  bearer token in memory only until the Step 19.6 session lifecycle is added.
 - Unknown links show a dedicated not-found screen.
 - `/dev/design-system` preserves the Step 19.2 showcase in development builds
   and renders unavailable content in production.
 
 See [`docs/STEP_19_4_HANDOFF.md`](docs/STEP_19_4_HANDOFF.md) for splash behavior,
 branding assets, navigation, tests, and the Step 19.5 handoff.
+See [`docs/STEP_19_5_HANDOFF.md`](docs/STEP_19_5_HANDOFF.md) for the implemented
+authentication contracts, security boundary, and Step 19.6 handoff.
 
 ## Run
 
@@ -99,7 +102,7 @@ npm.cmd run bundle:android
 ## Architecture
 
 ```text
-app/                    Welcome, auth placeholder, dev-only, and fallback routes
+app/                    Welcome, authentication, dev-only, and fallback routes
 assets/branding/        Editable ICMS brand source
 src/api/                FastAPI client, auth transport, routes, and domain services
 src/components/brand/   Original in-app mark and farm intelligence illustration
@@ -117,8 +120,9 @@ Domain boundaries are reserved for authentication, farms, permissions, cattle,
 health, and milk. Future breeding, feed, finance, reports, and marketplace
 features should follow the same feature-local structure.
 
-The root screen is a development showcase for the design system. Real
-authentication and domain workflows belong to later approved substeps.
+The root screen is the public welcome experience. Login and registration are
+real backend integrations; authenticated session restoration and protected
+application navigation intentionally remain Step 19.6 work.
 
 ## Design system
 
@@ -153,9 +157,9 @@ The web export is emitted to `dist/web` and the Android bundle check to
 ## Dependency notes
 
 Use `npm.cmd run doctor` and `npm.cmd run check:dependencies` before upgrading
-Expo packages. Do not use `npm audit fix --force`: at the Step 19.2 checkpoint,
-the production-tree audit reports 60 transitive findings (15 moderate, 45 high)
-through Expo CLI, Router, Metro, React Native, and their build tooling. npm's
+Expo packages. Do not use `npm audit fix --force`: at the Step 19.5 checkpoint,
+the production-tree audit reports 61 findings (16 moderate, 45 high; no
+critical findings) through Expo CLI, Router, Metro, React Native, and their build tooling. npm's
 suggested forced resolutions cross supported Expo versions. Expo Doctor is the
 compatibility authority for this SDK line, while these advisories remain a
 tracked SDK-upgrade item; none are dismissed or force-fixed here.

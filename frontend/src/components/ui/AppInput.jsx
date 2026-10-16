@@ -5,6 +5,7 @@ import { useAppTheme } from "../../theme/ThemeProvider";
 import { useAppReducedMotion } from "../../theme/useAppReducedMotion";
 
 export function AppInput({
+  inputRef,
   label,
   placeholder,
   value,
@@ -82,6 +83,7 @@ export function AppInput({
         ]}
       >
         <TextInput
+          ref={inputRef}
           testID={testID}
           value={value}
           onChangeText={onChangeText}
