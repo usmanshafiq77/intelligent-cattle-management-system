@@ -5,10 +5,11 @@ import { Pressable, Text } from "react-native";
 import { ThemeProvider, THEME_STORAGE_KEY, useAppTheme } from "../src/theme/ThemeProvider";
 
 function ThemeProbe() {
-  const { themeId, isThemeReady, changeTheme } = useAppTheme();
+  const { themeId, isThemeReady, themeRestoreError, changeTheme } = useAppTheme();
   return (
     <>
       <Text>{isThemeReady ? `ready:${themeId}` : "restoring"}</Text>
+      {themeRestoreError ? <Text>restore-error</Text> : null}
       <Pressable accessibilityRole="button" accessibilityLabel="Use midnight theme" onPress={() => changeTheme("midnight").catch(() => {})}>
         <Text>Change theme</Text>
       </Pressable>
@@ -68,5 +69,13 @@ describe("ThemeProvider", () => {
     });
 
     await waitFor(() => expect(screen.getByText("ready:emerald")).toBeTruthy());
+  });
+
+  test("continues with the default theme when initial restoration fails", async () => {
+    AsyncStorage.getItem.mockRejectedValueOnce(new Error("storage unavailable"));
+    const screen = render(<ThemeProvider><ThemeProbe /></ThemeProvider>);
+
+    await waitFor(() => expect(screen.getByText("ready:emerald")).toBeTruthy());
+    expect(screen.getByText("restore-error")).toBeTruthy();
   });
 });

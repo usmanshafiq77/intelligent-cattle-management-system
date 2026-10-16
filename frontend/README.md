@@ -68,6 +68,21 @@ npm.cmd run check:api
 npm.cmd run check:api -- --db
 ```
 
+## Entry experience
+
+The app opens on the production welcome experience. Native launch resources are
+configured through Expo Splash Screen and remain visible only while the saved
+theme preference is restored; no artificial startup delay is used.
+
+- `Get Started` opens the clearly labeled Step 19.5 signup placeholder.
+- `Log In` opens the clearly labeled Step 19.5 login placeholder.
+- Unknown links show a dedicated not-found screen.
+- `/dev/design-system` preserves the Step 19.2 showcase in development builds
+  and renders unavailable content in production.
+
+See [`docs/STEP_19_4_HANDOFF.md`](docs/STEP_19_4_HANDOFF.md) for splash behavior,
+branding assets, navigation, tests, and the Step 19.5 handoff.
+
 ## Run
 
 ```powershell
@@ -84,8 +99,10 @@ npm.cmd run bundle:android
 ## Architecture
 
 ```text
-app/                    Expo Router route files and layouts
+app/                    Welcome, auth placeholder, dev-only, and fallback routes
+assets/branding/        Editable ICMS brand source
 src/api/                FastAPI client, auth transport, routes, and domain services
+src/components/brand/   Original in-app mark and farm intelligence illustration
 src/components/ui/      Reusable, accessible interface primitives
 src/config/             Environment and runtime configuration
 src/features/           Domain-owned UI, hooks, validation, and API functions

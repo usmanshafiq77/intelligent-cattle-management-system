@@ -1,42 +1,17 @@
-import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
 import { Stack } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 
+import { StartupGate } from "../src/navigation/StartupGate";
 import { ThemeProvider, useAppTheme } from "../src/theme/ThemeProvider";
 
-function ThemeLoadingView() {
-  const { theme, spacing, typography } = useAppTheme();
+void SplashScreen.preventAutoHideAsync().catch(() => {});
 
-  return (
-    <View
-      accessibilityLabel="Loading saved appearance"
-      accessibilityLiveRegion="polite"
-      style={[styles.loading, { backgroundColor: theme.colors.background }]}
-    >
-      <View style={[styles.brandMark, { backgroundColor: theme.colors.primary }]}>
-        <Text style={[styles.brandText, { color: theme.colors.onPrimary }]}>ICMS</Text>
-      </View>
-      <ActivityIndicator color={theme.colors.primary} style={{ marginTop: spacing.xl }} />
-      <Text
-        style={{
-          color: theme.colors.textSecondary,
-          fontSize: typography.sizes.small,
-          marginTop: spacing.md,
-        }}
-      >
-        Restoring your appearance
-      </Text>
-    </View>
-  );
-}
-
-function ThemedNavigation() {
+export function ThemedNavigation() {
   const { theme, isThemeReady } = useAppTheme();
 
-  if (!isThemeReady) return <ThemeLoadingView />;
-
   return (
-    <>
+    <StartupGate ready={isThemeReady}>
       <StatusBar style="light" backgroundColor={theme.colors.primaryDark} />
       <Stack
         screenOptions={{
@@ -46,9 +21,13 @@ function ThemedNavigation() {
           headerTitleStyle: { fontWeight: "600" },
         }}
       >
-        <Stack.Screen name="index" options={{ title: "ICMS Design Preview" }} />
+        <Stack.Screen name="index" options={{ headerShown: false, title: "Welcome" }} />
+        <Stack.Screen name="auth/login" options={{ title: "Log In", headerBackTitle: "Welcome" }} />
+        <Stack.Screen name="auth/signup" options={{ title: "Get Started", headerBackTitle: "Welcome" }} />
+        <Stack.Screen name="dev/design-system" options={{ title: "ICMS Design System" }} />
+        <Stack.Screen name="+not-found" options={{ headerShown: false, title: "Not Found" }} />
       </Stack>
-    </>
+    </StartupGate>
   );
 }
 
@@ -59,9 +38,3 @@ export default function RootLayout() {
     </ThemeProvider>
   );
 }
-
-const styles = StyleSheet.create({
-  loading: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  brandMark: { width: 76, height: 76, borderRadius: 24, alignItems: "center", justifyContent: "center" },
-  brandText: { fontSize: 21, fontWeight: "800", letterSpacing: 1 },
-});

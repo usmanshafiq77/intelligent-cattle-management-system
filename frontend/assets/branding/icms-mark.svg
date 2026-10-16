@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">ICMS brand mark</title>
+  <desc id="description">A simplified cattle face with a gold leaf on an emerald rounded square.</desc>
+  <defs>
+    <linearGradient id="emerald" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#075C4B"/>
+      <stop offset="0.55" stop-color="#087F65"/>
+      <stop offset="1" stop-color="#1AB69D"/>
+    </linearGradient>
+  </defs>
+  <rect x="32" y="32" width="448" height="448" rx="128" fill="url(#emerald)"/>
+  <path d="M178 191c-34-25-61-18-78 8m234-8c34-25 61-18 78 8" fill="none" stroke="#F8FFF9" stroke-width="22" stroke-linecap="round"/>
+  <rect x="154" y="169" width="204" height="226" rx="82" fill="none" stroke="#F8FFF9" stroke-width="22"/>
+  <circle cx="216" cy="250" r="10" fill="#F8FFF9"/>
+  <circle cx="296" cy="250" r="10" fill="#F8FFF9"/>
+  <rect x="202" y="303" width="108" height="54" rx="27" fill="none" stroke="#F8FFF9" stroke-width="16"/>
+  <path d="M356 103c44 7 68 38 64 82-43-7-68-37-64-82Z" fill="#D5A64B"/>
+</svg>

@@ -12,7 +12,7 @@ import { InputShowcase } from "../components/InputShowcase";
 import { ThemeSelector } from "../components/ThemeSelector";
 import { TypographyShowcase } from "../components/TypographyShowcase";
 
-export function WelcomeScreen() {
+export function DesignSystemScreen() {
   const { width } = useWindowDimensions();
   const { theme, spacing, radius, typography, layout, themeRestoreError } = useAppTheme();
   const compact = width < layout.breakpoints.compact;

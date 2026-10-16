@@ -44,6 +44,16 @@ test('required architecture and routes exist', async () => {
   const requiredPaths = [
     'app/_layout.jsx',
     'app/index.jsx',
+    'app/+not-found.jsx',
+    'app/auth/login.jsx',
+    'app/auth/signup.jsx',
+    'app/dev/design-system.jsx',
+    'assets/branding/icms-mark.svg',
+    'src/components/brand/BrandMark.jsx',
+    'src/components/brand/FarmIntelligenceGraphic.jsx',
+    'src/features/onboarding/screens/WelcomeScreen.jsx',
+    'src/navigation/DevelopmentOnlyRoute.jsx',
+    'src/navigation/StartupGate.jsx',
     'src/api/client.js',
     'src/api/authTransport.js',
     'src/api/errors.js',
@@ -71,6 +81,33 @@ test('required architecture and routes exist', async () => {
     const entries = await readdir(path.join(projectRoot, 'src', 'features', feature));
     assert.ok(entries.includes('.gitkeep'), `${feature} feature boundary must exist`);
   }
+});
+
+test('native splash uses the supported Expo plugin and generated PNG assets', async () => {
+  const appConfig = JSON.parse(await readFile(path.join(projectRoot, 'app.json'), 'utf8'));
+  const splashPlugin = appConfig.expo.plugins.find(
+    (plugin) => Array.isArray(plugin) && plugin[0] === 'expo-splash-screen',
+  );
+
+  assert.ok(splashPlugin, 'expo-splash-screen plugin configuration is required');
+  assert.equal(splashPlugin[1].resizeMode, 'contain');
+  assert.ok(splashPlugin[1].imageWidth >= 100 && splashPlugin[1].imageWidth <= 288);
+  assert.match(splashPlugin[1].backgroundColor, /^#[0-9A-F]{6}$/i);
+
+  for (const asset of ['icon.png', 'splash-icon.png', 'android-icon-foreground.png', 'android-icon-background.png', 'android-icon-monochrome.png']) {
+    const file = await readFile(path.join(projectRoot, 'assets', asset));
+    assert.deepEqual([...file.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+    assert.ok(file.length > 1000, `${asset} should contain generated artwork`);
+  }
+});
+
+test('default route is user-facing and the design showcase is development guarded', async () => {
+  const indexRoute = await readFile(path.join(projectRoot, 'app', 'index.jsx'), 'utf8');
+  const devRoute = await readFile(path.join(projectRoot, 'app', 'dev', 'design-system.jsx'), 'utf8');
+
+  assert.match(indexRoute, /features\/onboarding\/screens\/WelcomeScreen/);
+  assert.match(devRoute, /DevelopmentOnlyRoute/);
+  assert.doesNotMatch(indexRoute, /features\/home\/screens\/WelcomeScreen/);
 });
 
 test('environment example contains a public URL and no credentials', async () => {
