@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from app.api.v1.farms import router as farms_router
@@ -13,6 +14,7 @@ from app.api.v1.milk import router as milk_router
 
 from app.db.session import engine
 from app.api.v1.auth import router as auth_router
+from app.core.config import get_settings
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +23,15 @@ app = FastAPI(
     title="Intelligent Cattle Management System API",
     description="Backend API for the ICMS mobile and web application.",
     version="0.1.0",
+)
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Accept", "Authorization", "Content-Type"],
+    expose_headers=["Retry-After"],
 )
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(farms_router, prefix="/api/v1")

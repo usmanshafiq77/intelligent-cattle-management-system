@@ -1,8 +1,9 @@
 
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -11,6 +12,13 @@ BACKEND_DIR = Path(__file__).resolve().parents[2]
 
 class Settings(BaseSettings):
     APP_ENV: str = "development"
+
+    CORS_ALLOWED_ORIGINS: list[str] = Field(
+        default_factory=lambda: [
+            "http://localhost:8081",
+            "http://127.0.0.1:8081",
+        ]
+    )
 
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
@@ -56,6 +64,41 @@ class Settings(BaseSettings):
         gt=0,
         le=10 * 1024 * 1024,
     )
+
+    @field_validator("CORS_ALLOWED_ORIGINS")
+    @classmethod
+    def validate_cors_origins(cls, origins: list[str]) -> list[str]:
+        normalized: list[str] = []
+        for origin in origins:
+            value = origin.strip().rstrip("/")
+            parsed = urlsplit(value)
+            if (
+                not value
+                or value == "*"
+                or parsed.scheme not in {"http", "https"}
+                or not parsed.netloc
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+                or parsed.username
+                or parsed.password
+            ):
+                raise ValueError(
+                    "CORS origins must be explicit HTTP(S) origins without "
+                    "credentials, paths, queries, fragments, or wildcards"
+                )
+            if value not in normalized:
+                normalized.append(value)
+        return normalized
+
+    @model_validator(mode="after")
+    def require_secure_production_cors(self):
+        if self.APP_ENV.lower() == "production" and any(
+            not origin.startswith("https://")
+            for origin in self.CORS_ALLOWED_ORIGINS
+        ):
+            raise ValueError("Production CORS origins must use HTTPS")
+        return self
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

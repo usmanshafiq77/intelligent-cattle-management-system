@@ -45,6 +45,17 @@ test('required architecture and routes exist', async () => {
     'app/_layout.jsx',
     'app/index.jsx',
     'src/api/client.js',
+    'src/api/authTransport.js',
+    'src/api/errors.js',
+    'src/api/routes.js',
+    'src/api/auth.js',
+    'src/api/farms.js',
+    'src/api/staff.js',
+    'src/api/invitations.js',
+    'src/api/permissions.js',
+    'src/api/cattle.js',
+    'src/api/health.js',
+    'src/api/milk.js',
     'src/config/environment.js',
     'src/components/ui/Screen.jsx',
     'src/features/home/screens/WelcomeScreen.jsx',
@@ -66,5 +77,17 @@ test('environment example contains a public URL and no credentials', async () =>
   const example = await readFile(path.join(projectRoot, '.env.example'), 'utf8');
 
   assert.match(example, /^EXPO_PUBLIC_API_BASE_URL=/m);
+  assert.match(example, /^EXPO_PUBLIC_API_BASE_URL_WEB=/m);
+  assert.match(example, /^EXPO_PUBLIC_API_BASE_URL_ANDROID=/m);
   assert.doesNotMatch(example, /(password|secret|token|api_key)\s*=/i);
+});
+
+test('authentication transport never persists tokens in AsyncStorage', async () => {
+  const apiDirectory = path.join(projectRoot, 'src', 'api');
+  const apiFiles = (await readdir(apiDirectory)).filter((file) => file.endsWith('.js'));
+  const sources = await Promise.all(
+    apiFiles.map((file) => readFile(path.join(apiDirectory, file), 'utf8')),
+  );
+
+  assert.ok(sources.every((source) => !source.includes('@react-native-async-storage')));
 });

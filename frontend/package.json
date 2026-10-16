@@ -29,6 +29,7 @@
     "web": "expo start --web",
     "export:web": "expo export --platform web --output-dir dist/web",
     "bundle:android": "expo export --platform android --output-dir dist/android",
+    "check:api": "node --env-file-if-exists=.env scripts/check-api.mjs",
     "check:dependencies": "expo install --check",
     "doctor": "expo-doctor",
     "test:structure": "node --test tests/project-structure.test.mjs tests/design-tokens.test.mjs",

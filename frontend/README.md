@@ -47,6 +47,27 @@ specific host outside local development.
 
 Restart Expo after changing `.env` so the bundled public value is refreshed.
 
+Step 19.3 provides separate platform overrides without duplicating URLs inside
+service modules:
+
+- `EXPO_PUBLIC_API_BASE_URL_WEB` for the browser on the development laptop.
+- `EXPO_PUBLIC_API_BASE_URL_ANDROID` for the Android emulator or device.
+- `EXPO_PUBLIC_API_BASE_URL` as the fallback, including physical-device LAN use.
+- `EXPO_PUBLIC_APP_ENV=production` requires HTTPS.
+
+Only public network configuration belongs in these variables. The validator
+rejects embedded credentials, paths, queries, fragments, Android loopback
+addresses, and insecure production URLs. See
+[`docs/STEP_19_3_HANDOFF.md`](docs/STEP_19_3_HANDOFF.md) for the complete API
+architecture, authentication transport, CORS policy, and integration commands.
+
+With the backend running, perform a genuine read-only health check using:
+
+```powershell
+npm.cmd run check:api
+npm.cmd run check:api -- --db
+```
+
 ## Run
 
 ```powershell
@@ -64,7 +85,7 @@ npm.cmd run bundle:android
 
 ```text
 app/                    Expo Router route files and layouts
-src/api/                Generic FastAPI HTTP client
+src/api/                FastAPI client, auth transport, routes, and domain services
 src/components/ui/      Reusable, accessible interface primitives
 src/config/             Environment and runtime configuration
 src/features/           Domain-owned UI, hooks, validation, and API functions
