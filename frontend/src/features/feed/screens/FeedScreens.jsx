@@ -242,8 +242,8 @@ export function FeedReportsScreen({ onBack, api = feedApi }) {
 
 const styles = StyleSheet.create({
   page: { width: "100%", alignSelf: "center", paddingBottom: 48 },
-  headingRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  grow: { flex: 1 },
+  headingRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 12 },
+  grow: { flex: 1, minWidth: 0 },
   wrap: { flexDirection: "row", flexWrap: "wrap", alignItems: "flex-end" },
   form: { gap: 12 },
   stat: { minWidth: 170, flexGrow: 1 },

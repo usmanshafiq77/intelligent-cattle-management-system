@@ -72,7 +72,7 @@ export function VerificationScreen({ initialToken = "", onBack, api = authApi })
   };
 
   return (
-    <Screen style={{ backgroundColor: theme.colors.background }}>
+    <Screen safeEdges={["right", "bottom", "left"]} style={{ backgroundColor: theme.colors.background }}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.container, { padding: spacing.xl, maxWidth: layout.formMaxWidth }]}>
         <Text accessibilityRole="header" style={{ color: theme.colors.text, fontSize: typography.sizes.heading, fontWeight: "800" }}>Verify your email</Text>
         <Text style={{ color: theme.colors.textSecondary, marginTop: spacing.sm }}>Enter the one-time verification code from your ICMS email. Codes are never saved on this device.</Text>

@@ -5,5 +5,5 @@ import { ROUTES } from "../src/navigation/routes";
 
 export default function ProfileRoute() {
   const router = useRouter();
-  return <ProfileScreen onVerify={() => router.push(ROUTES.verifyEmail)} />;
+  return <ProfileScreen onVerify={() => router.push(ROUTES.verifyEmail)} onSettings={() => router.push(ROUTES.settings)} />;
 }

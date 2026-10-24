@@ -148,9 +148,10 @@ export function WorkerDashboard({
         title="Milk Production"
         subtitle="Record daily milk production."
       >
-        <Text style={{ color: theme.colors.textSecondary }}>
-          Coming Soon — Morning and evening milk entry.
-        </Text>
+        <View style={{ gap: spacing.md }}>
+          {farm.can("milk.record") ? <AppButton title="Record Milk" onPress={() => onNavigate("/milk/entry")} /> : null}
+          {farm.can("milk.view") ? <AppButton title="View Milk History" variant="outline" onPress={() => onNavigate("/milk/records")} /> : null}
+        </View>
       </AppCard>
 
       {/* FEED MANAGEMENT */}
@@ -176,12 +177,13 @@ export function WorkerDashboard({
 
       {/* DAILY TASKS */}
       <AppCard
-        title="Daily Tasks"
-        subtitle="Track assigned farm activities."
+        title="Assigned Tasks & Cattle"
+        subtitle="Start or complete assigned work and review animals under your care."
       >
-        <Text style={{ color: theme.colors.textSecondary }}>
-          Coming Soon — Daily task management.
-        </Text>
+        <View style={{ gap: spacing.md }}>
+          <AppButton title="View My Tasks" onPress={() => onNavigate("/tasks/my")} />
+          <AppButton title="View Assigned Cattle" variant="outline" onPress={() => onNavigate("/tasks/assigned-cattle")} />
+        </View>
       </AppCard>
 
       {/* REFRESH */}

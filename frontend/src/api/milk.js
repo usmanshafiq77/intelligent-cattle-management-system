@@ -21,5 +21,6 @@ export const milkApi = Object.freeze({
   createCorrection: (farmId, payload, options) => apiClient.post(root(farmId, "corrections"), { ...options, json: payload }),
   getProductionAnalytics: (farmId, query, options) => apiClient.get(`${root(farmId, "analytics")}/production`, { ...options, query }),
   getBreakdownAnalytics: (farmId, query, options) => apiClient.get(`${root(farmId, "analytics")}/breakdown`, { ...options, query }),
+  getAvailability: (farmId, options) => apiClient.get(`${root(farmId, "analytics")}/availability`, options),
   getAnalyticsDataset: (farmId, query, options) => apiClient.get(`${root(farmId, "analytics")}/dataset`, { ...options, query }),
 });

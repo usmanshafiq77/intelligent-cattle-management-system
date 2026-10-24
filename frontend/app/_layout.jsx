@@ -1,6 +1,7 @@
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { StartupGate } from "../src/navigation/StartupGate";
 import { AuthProvider, useAuth } from "../src/features/auth/context/AuthProvider";
@@ -8,6 +9,7 @@ import { SessionUnavailableScreen } from "../src/features/auth/screens/SessionUn
 import { FarmProvider } from "../src/features/farms/context/FarmProvider";
 import { canAccessProtectedRoutes, canAccessPublicAuthRoutes } from "../src/navigation/sessionPolicy";
 import { ThemeProvider, useAppTheme } from "../src/theme/ThemeProvider";
+import { AdaptiveNavigationProvider } from "../src/features/navigation/components/AdaptiveNavigation";
 
 void SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -22,6 +24,7 @@ export function ThemedNavigation() {
       {auth.status === "verification-unavailable" ? <SessionUnavailableScreen /> : <Stack
         screenOptions={{
           contentStyle: { backgroundColor: theme.colors.background },
+          headerShown: false,
           headerStyle: { backgroundColor: theme.colors.primary },
           headerTintColor: theme.colors.onPrimary,
           headerTitleStyle: { fontWeight: "600" },
@@ -29,9 +32,9 @@ export function ThemedNavigation() {
       >
         <Stack.Protected guard={canAccessPublicAuthRoutes(auth.status)}>
           <Stack.Screen name="index" options={{ headerShown: false, title: "Welcome" }} />
-          <Stack.Screen name="auth/login" options={{ title: "Log In", headerBackTitle: "Welcome" }} />
-          <Stack.Screen name="auth/signup" options={{ title: "Get Started", headerBackTitle: "Welcome" }} />
-          <Stack.Screen name="auth/forgot-password" options={{ title: "Forgot Password", headerBackTitle: "Log In" }} />
+          <Stack.Screen name="auth/login" options={{ headerShown: true, title: "Log In", headerBackTitle: "Welcome" }} />
+          <Stack.Screen name="auth/signup" options={{ headerShown: true, title: "Get Started", headerBackTitle: "Welcome" }} />
+          <Stack.Screen name="auth/forgot-password" options={{ headerShown: true, title: "Forgot Password", headerBackTitle: "Log In" }} />
         </Stack.Protected>
         <Stack.Protected guard={canAccessProtectedRoutes(auth.status)}>
           <Stack.Screen name="dashboard" options={{ headerShown: false, title: "ICMS Dashboard" }} />
@@ -44,6 +47,16 @@ export function ThemedNavigation() {
           <Stack.Screen name="cattle/register" options={{ headerShown: false, title: "Register Cattle" }} />
           <Stack.Screen name="cattle/[id]/index" options={{ headerShown: false, title: "Cattle Profile" }} />
           <Stack.Screen name="cattle/[id]/edit" options={{ headerShown: false, title: "Edit Cattle" }} />
+          <Stack.Screen name="milk/index" options={{ headerShown: false, title: "Milk Production" }} />
+          <Stack.Screen name="milk/entry" options={{ headerShown: false, title: "Daily Milk Entry" }} />
+          <Stack.Screen name="milk/records/index" options={{ headerShown: false, title: "Milk Records" }} />
+          <Stack.Screen name="milk/records/[id]" options={{ headerShown: false, title: "Milk Record Details" }} />
+          <Stack.Screen name="milk/cows" options={{ headerShown: false, title: "Cow Milk History" }} />
+          <Stack.Screen name="milk/lactations" options={{ headerShown: false, title: "Lactation Records" }} />
+          <Stack.Screen name="milk/corrections" options={{ headerShown: false, title: "Milk Corrections" }} />
+          <Stack.Screen name="milk/analytics" options={{ headerShown: false, title: "Milk Analytics" }} />
+          <Stack.Screen name="milk/availability" options={{ headerShown: false, title: "Milk Availability" }} />
+          <Stack.Screen name="milk/reports" options={{ headerShown: false, title: "Milk Reports" }} />
           <Stack.Screen name="feed/index" options={{ headerShown: false, title: "Feed & Nutrition" }} />
           <Stack.Screen name="feed/inventory" options={{ headerShown: false, title: "Feed Inventory" }} />
           <Stack.Screen name="feed/schedules" options={{ headerShown: false, title: "Feeding Schedules" }} />
@@ -81,11 +94,20 @@ export function ThemedNavigation() {
           <Stack.Screen name="invitations/accept" options={{ title: "Join Farm", headerBackTitle: "Dashboard" }} />
           <Stack.Screen name="session" options={{ headerShown: false, title: "Session" }} />
           <Stack.Screen name="profile" options={{ headerShown: false, title: "Profile" }} />
+          <Stack.Screen name="settings/index" options={{ headerShown: false, title: "Settings" }} />
+          <Stack.Screen name="settings/profile" options={{ headerShown: false, title: "Personal Profile" }} />
+          <Stack.Screen name="settings/security" options={{ headerShown: false, title: "Account Security" }} />
+          <Stack.Screen name="settings/appearance" options={{ headerShown: false, title: "Appearance" }} />
+          <Stack.Screen name="settings/farm" options={{ headerShown: false, title: "Farm Configuration" }} />
+          <Stack.Screen name="settings/account" options={{ headerShown: false, title: "Account Management" }} />
+          <Stack.Screen name="admin/backups/index" options={{ headerShown: false, title: "Backup & Recovery" }} />
+          <Stack.Screen name="admin/backups/[section]" options={{ headerShown: false, title: "Backup Administration" }} />
+          <Stack.Screen name="admin/backups/job/[id]" options={{ headerShown: false, title: "Backup Details" }} />
           <Stack.Screen name="farm/[module]" options={{ title: "Farm Module", headerBackTitle: "Dashboard" }} />
         </Stack.Protected>
-        <Stack.Screen name="auth/verify-email" options={{ title: "Verify Email", headerBackTitle: "Back" }} />
-        <Stack.Screen name="reset-password" options={{ title: "Reset Password", headerBackTitle: "Log In" }} />
-        <Stack.Screen name="dev/design-system" options={{ title: "ICMS Design System" }} />
+        <Stack.Screen name="auth/verify-email" options={{ headerShown: true, title: "Verify Email", headerBackTitle: "Back" }} />
+        <Stack.Screen name="reset-password" options={{ headerShown: true, title: "Reset Password", headerBackTitle: "Log In" }} />
+        <Stack.Screen name="dev/design-system" options={{ headerShown: true, title: "ICMS Design System" }} />
         <Stack.Screen name="+not-found" options={{ headerShown: false, title: "Not Found" }} />
       </Stack>
       }
@@ -95,12 +117,16 @@ export function ThemedNavigation() {
 
 export default function RootLayout() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <FarmProvider>
-          <ThemedNavigation />
-        </FarmProvider>
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <FarmProvider>
+            <AdaptiveNavigationProvider>
+              <ThemedNavigation />
+            </AdaptiveNavigationProvider>
+          </FarmProvider>
+        </AuthProvider>
+      </ThemeProvider>
+    </SafeAreaProvider>
   );
 }

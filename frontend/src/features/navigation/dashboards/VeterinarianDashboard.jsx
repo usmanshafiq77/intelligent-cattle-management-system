@@ -176,6 +176,30 @@ export function VeterinarianDashboard({
         </AppCard>
       ) : null}
 
+      {farm.can("milk.view") ? (
+        <AppCard
+          title="Milk Production Context"
+          subtitle="Review authorized production history for clinical evaluation."
+        >
+          <View style={{ gap: spacing.md }}>
+            <AppButton title="View Cow Milk History" onPress={() => onNavigate("/milk/cows")} />
+            {farm.can("milk.analytics.view") ? <AppButton title="Review Milk Analytics" variant="outline" onPress={() => onNavigate("/milk/analytics")} /> : null}
+          </View>
+        </AppCard>
+      ) : null}
+
+      {farm.can("task.view") ? (
+        <AppCard
+          title="Veterinary Tasks & Reminders"
+          subtitle="Review assigned clinical work without financial or administrative access."
+        >
+          <View style={{ gap: spacing.md }}>
+            <AppButton title="View Veterinary Tasks" onPress={() => onNavigate("/tasks/veterinary")} />
+            <AppButton title="Review Reminders" variant="outline" onPress={() => onNavigate("/tasks/reminders")} />
+          </View>
+        </AppCard>
+      ) : null}
+
       {/* HEALTH RECORDS */}
 
       <AppCard

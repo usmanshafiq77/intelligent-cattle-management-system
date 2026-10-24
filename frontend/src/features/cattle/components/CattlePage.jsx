@@ -1,12 +1,13 @@
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { AppButton } from "../../../components/ui/AppButton";
+import { Screen } from "../../../components/ui/Screen";
 import { useAppTheme } from "../../../theme/ThemeProvider";
 
 export function CattlePage({ eyebrow = "HERD MANAGEMENT", title, subtitle, onBack, action, children }) {
   const { theme, spacing, typography, layout } = useAppTheme();
   return (
-    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+    <Screen style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <ScrollView contentContainerStyle={[styles.content, { maxWidth: layout.contentMaxWidth, padding: spacing.xl }]} keyboardShouldPersistTaps="handled">
         <View style={styles.topRow}>
           <AppButton title="Back" variant="outline" size="small" fullWidth={false} onPress={onBack} accessibilityLabel="Back to cattle dashboard" />
@@ -17,7 +18,7 @@ export function CattlePage({ eyebrow = "HERD MANAGEMENT", title, subtitle, onBac
         {subtitle ? <Text style={{ color: theme.colors.textSecondary, fontSize: typography.sizes.body, lineHeight: typography.lineHeights.body, marginTop: spacing.sm, marginBottom: spacing.xxl }}>{subtitle}</Text> : <View style={{ height: spacing.xxl }} />}
         {children}
       </ScrollView>
-    </View>
+    </Screen>
   );
 }
 

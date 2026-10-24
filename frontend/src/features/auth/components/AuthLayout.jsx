@@ -14,7 +14,7 @@ export function AuthLayout({ eyebrow, title, subtitle, onBack, children }) {
   const [backFocused, setBackFocused] = useState(false);
 
   return (
-    <Screen style={{ backgroundColor: theme.colors.background }}>
+    <Screen avoidKeyboard={false} safeEdges={["right", "bottom", "left"]} style={{ backgroundColor: theme.colors.background }}>
       <LinearGradient colors={theme.gradients.background} style={StyleSheet.absoluteFillObject} />
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView

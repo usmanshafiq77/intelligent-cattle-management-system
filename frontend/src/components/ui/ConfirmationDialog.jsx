@@ -1,7 +1,8 @@
-import { useEffect, useRef } from "react";
+import { useContext, useEffect, useRef } from "react";
 import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useAppTheme } from "../../theme/ThemeProvider";
+import { SafeAreaInsetsContext } from "react-native-safe-area-context";
 import { useAppReducedMotion } from "../../theme/useAppReducedMotion";
 import { AppButton } from "./AppButton";
 import { FadeInView } from "./FadeInView";
@@ -19,6 +20,7 @@ export function ConfirmationDialog({
 }) {
   const { theme, radius, spacing, typography, shadows } = useAppTheme();
   const reduceMotion = useAppReducedMotion();
+  const insets = useContext(SafeAreaInsetsContext) || { top: 0, right: 0, bottom: 0, left: 0 };
   const cancelRef = useRef(null);
 
   useEffect(() => {
@@ -35,7 +37,7 @@ export function ConfirmationDialog({
       onRequestClose={pending ? undefined : onCancel}
       statusBarTranslucent
     >
-      <View style={[styles.overlay, { backgroundColor: theme.colors.overlay }]}>
+      <View style={[styles.overlay, { backgroundColor: theme.colors.overlay, paddingTop: Math.max(insets.top, spacing.lg), paddingBottom: Math.max(insets.bottom, spacing.lg), paddingHorizontal: spacing.lg }]}>
         <Pressable
           accessibilityLabel="Close confirmation dialog"
           disabled={pending}

@@ -8,7 +8,22 @@ export const PERMISSIONS = Object.freeze({
   CATTLE_UPDATE: "cattle.update",
   CATTLE_DELETE: "cattle.delete",
   HEALTH_VIEW: "health.view",
+  HEALTH_CREATE: "health.create",
+  HEALTH_DIAGNOSIS: "health.diagnosis",
+  HEALTH_VACCINATION_MANAGE: "health.vaccination.manage",
+  HEALTH_VACCINATION_ADMINISTER: "health.vaccination.administer",
+  HEALTH_TREATMENT_MANAGE: "health.treatment.manage",
+  HEALTH_MEDICATION_ADMINISTER: "health.medication.administer",
+  HEALTH_VISIT_MANAGE: "health.visit.manage",
+  HEALTH_AUDIT_VIEW: "health.audit.view",
   MILK_VIEW: "milk.view",
+  MILK_RECORD: "milk.record",
+  MILK_MANAGE: "milk.manage",
+  MILK_LACTATION_MANAGE: "milk.lactation.manage",
+  MILK_QUALITY_MANAGE: "milk.quality.manage",
+  MILK_CORRECT: "milk.correct",
+  MILK_ANALYTICS_VIEW: "milk.analytics.view",
+  MILK_BULK_CREATE: "milk.bulk.create",
   FEED_VIEW: "feed.view",
   FEED_MANAGE: "feed.manage",
   FEED_RECORD: "feed.record",
@@ -42,6 +57,11 @@ export const PERMISSIONS = Object.freeze({
   MARKETPLACE_SALE_CONFIRM: "marketplace.sale.confirm",
   MARKETPLACE_REPORT_CREATE: "marketplace.report.create",
   MARKETPLACE_MODERATE: "marketplace.moderate",
+  TASK_VIEW: "task.view",
+  TASK_MANAGE: "task.manage",
+  TASK_UPDATE_ASSIGNED: "task.update.assigned",
+  CATTLE_ASSIGNMENT_MANAGE: "cattle.assignment.manage",
+  NOTIFICATION_VIEW: "notification.view",
 });
 
 export const FARM_ROLE_LABELS = Object.freeze({
@@ -52,7 +72,7 @@ export const FARM_ROLE_LABELS = Object.freeze({
 });
 
 export const FARM_MODULES = Object.freeze({
-  farm: Object.freeze({ key: "farm", title: "Farm Management", description: "Farm settings and operational details", permission: PERMISSIONS.FARM_MANAGE }),
+  farm: Object.freeze({ key: "farm", title: "Farm Details", description: "Farm profile and operational details", permission: PERMISSIONS.FARM_VIEW }),
   staff: Object.freeze({ key: "staff", title: "Staff & Invitations", description: "Team membership and access", permission: PERMISSIONS.STAFF_VIEW }),
   cattle: Object.freeze({ key: "cattle", title: "Cattle", description: "Herd profiles and lifecycle records", permission: PERMISSIONS.CATTLE_VIEW }),
   health: Object.freeze({ key: "health", title: "Health", description: "Veterinary care and vaccinations", permission: PERMISSIONS.HEALTH_VIEW }),
@@ -61,6 +81,7 @@ export const FARM_MODULES = Object.freeze({
   breeding: Object.freeze({ key: "breeding", title: "Breeding & Genetics", description: "Reproduction, calving, offspring and pedigree", permission: PERMISSIONS.BREEDING_VIEW }),
   finance: Object.freeze({ key: "finance", title: "Finance & Resources", description: "Income, expenses, payments, budgets and farm assets", permission: PERMISSIONS.FINANCE_VIEW }),
   marketplace: Object.freeze({ key: "marketplace", title: "Cattle Marketplace", description: "Browse cattle, manage farm listings and buyer inquiries", permission: PERMISSIONS.MARKETPLACE_VIEW }),
+  tasks: Object.freeze({ key: "tasks", title: "Tasks & Notifications", description: "Assignments, reminders and farm work", permission: PERMISSIONS.TASK_VIEW }),
 });
 
 export function roleLabel(role) {

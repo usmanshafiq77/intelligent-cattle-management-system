@@ -9,24 +9,20 @@ import {
 } from "react-native";
 
 import { cattleApi } from "../../../api/cattle";
-import { BrandMark } from "../../../components/brand/BrandMark";
 import { AppButton } from "../../../components/ui/AppButton";
 import { AppCard } from "../../../components/ui/AppCard";
 import { FeedbackState } from "../../../components/ui/FeedbackState";
+import { Screen } from "../../../components/ui/Screen";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 
 import { useAuth } from "../../auth/context/AuthProvider";
 import { FarmSelector } from "../../farms/components/FarmSelector";
 import { useFarm } from "../../farms/context/FarmProvider";
 
-import {
-  farmNavigationItems,
-  platformNavigationItems,
-} from "../../permissions/navigationConfig";
+import { platformNavigationItems } from "../../permissions/navigationConfig";
 
 import { roleLabel } from "../../permissions/permissionCatalog";
 import { useAppTheme } from "../../../theme/ThemeProvider";
-import { RoleNavigation } from "../components/RoleNavigation";
 
 // Existing role-specific dashboard components
 import { OwnerDashboard } from "../dashboards/OwnerDashboard";
@@ -56,7 +52,9 @@ function ThemeControls() {
       {Object.values(themes).map((option) => (
         <Pressable
           key={option.id}
+          testID={`theme-option-${option.id}`}
           accessibilityRole="radio"
+          accessibilityLabel={`Use ${option.name} theme`}
           accessibilityState={{
             checked: option.id === theme.id,
           }}
@@ -64,31 +62,25 @@ function ThemeControls() {
             void changeTheme(option.id).catch(() => {});
           }}
           style={({ pressed }) => ({
-            minHeight: 44,
+            width: 44,
+            height: 44,
+            alignItems: "center",
             justifyContent: "center",
-            paddingHorizontal: spacing.md,
-            borderWidth: 1,
+            borderWidth: option.id === theme.id ? 2 : 1,
             borderColor:
               option.id === theme.id
                 ? theme.colors.primary
                 : theme.colors.border,
-            backgroundColor:
-              option.id === theme.id
-                ? theme.colors.surfaceSecondary
-                : theme.colors.surface,
+            backgroundColor: theme.colors.surface,
             borderRadius: radius.pill,
             opacity: pressed ? 0.75 : 1,
           })}
         >
-          <Text
-            style={{
-              color: theme.colors.text,
-              fontSize: typography.sizes.caption,
-              fontWeight: typography.weights.bold,
-            }}
-          >
-            {option.name}
-          </Text>
+          <View style={[styles.themePreview, { backgroundColor: option.colors.background, borderColor: option.colors.border }]}>
+            <View style={[styles.themePreviewHalf, { backgroundColor: option.colors.primary }]} />
+            <View style={[styles.themePreviewHalf, { backgroundColor: option.colors.secondary }]} />
+          </View>
+          {option.id === theme.id ? <View testID={`theme-selected-${option.id}`} style={[styles.themeCheck, { backgroundColor: theme.colors.primary }]}><Text style={styles.themeCheckText}>✓</Text></View> : null}
         </Pressable>
       ))}
     </View>
@@ -117,8 +109,6 @@ export function DashboardScreen({
 
   const desktop = width >= layout.breakpoints.tablet;
 
-  // Existing permission-aware navigation
-  const farmItems = farmNavigationItems(farm.can);
   const platformItems = platformNavigationItems(auth.user);
 
   // The role belongs to the active farm membership.
@@ -365,7 +355,7 @@ export function DashboardScreen({
   // =====================================================
 
   return (
-    <View
+    <Screen
       style={[
         styles.screen,
         {
@@ -374,69 +364,10 @@ export function DashboardScreen({
       ]}
     >
       {/* =================================================
-          COMMON HEADER
-      ================================================= */}
-
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: theme.colors.primaryDark,
-            paddingHorizontal: spacing.xl,
-            paddingVertical: spacing.md,
-          },
-        ]}
-      >
-        <BrandMark size={42} />
-
-        <View style={styles.headerActions}>
-          <Text
-            numberOfLines={1}
-            style={{
-              color: theme.colors.onPrimary,
-              fontWeight: typography.weights.semibold,
-            }}
-          >
-            {auth.user?.full_name}
-          </Text>
-
-          <AppButton
-            title="Profile"
-            size="small"
-            variant="secondary"
-            fullWidth={false}
-            onPress={() => {
-              onNavigate("/profile");
-            }}
-          />
-
-          <AppButton
-            title="Log out"
-            size="small"
-            variant="outline"
-            fullWidth={false}
-            onPress={() => {
-              void auth.logout().catch(() => {});
-            }}
-          />
-        </View>
-      </View>
-
-      {/* =================================================
           MAIN BODY
       ================================================= */}
 
       <View style={styles.body}>
-        {/* DESKTOP SIDEBAR */}
-
-        {desktop ? (
-          <RoleNavigation
-            items={farmItems}
-            desktop
-            onNavigate={onNavigate}
-          />
-        ) : null}
-
         {/* MAIN CONTENT */}
 
         <ScrollView
@@ -451,6 +382,10 @@ export function DashboardScreen({
             },
           ]}
         >
+          <View testID="dashboard-theme-selector" style={[styles.themeSelectorRow, { marginBottom: spacing.md }]}>
+            <ThemeControls />
+          </View>
+
           {/* DASHBOARD INTRODUCTION */}
 
           <Text
@@ -563,41 +498,10 @@ export function DashboardScreen({
             </View>
           ) : null}
 
-          {/* =================================================
-              APPEARANCE AND THEME SETTINGS
-          ================================================= */}
-
-          <View
-            style={{
-              marginTop: spacing.xxl,
-              gap: spacing.sm,
-            }}
-          >
-            <Text
-              style={{
-                color: theme.colors.text,
-                fontWeight: typography.weights.bold,
-              }}
-            >
-              Appearance
-            </Text>
-
-            <ThemeControls />
-          </View>
         </ScrollView>
       </View>
 
-      {/* =================================================
-          MOBILE NAVIGATION
-      ================================================= */}
-
-      {!desktop ? (
-        <RoleNavigation
-          items={farmItems}
-          onNavigate={onNavigate}
-        />
-      ) : null}
-    </View>
+    </Screen>
   );
 }
 
@@ -608,22 +512,6 @@ export function DashboardScreen({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-
-  header: {
-    minHeight: 70,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-
-  headerActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    gap: 8,
-    flexShrink: 1,
   },
 
   body: {
@@ -643,6 +531,7 @@ const styles = StyleSheet.create({
 
   activeFarmTitle: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 12,
   },
@@ -655,7 +544,37 @@ const styles = StyleSheet.create({
 
   themeOptions: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: 8,
+  },
+  themeSelectorRow: {
+    alignItems: "flex-end",
+    width: "100%",
+  },
+  themePreview: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    overflow: "hidden",
+  },
+  themePreviewHalf: {
+    flex: 1,
+  },
+  themeCheck: {
+    position: "absolute",
+    right: -2,
+    bottom: -2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeCheckText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    lineHeight: 12,
   },
 });
