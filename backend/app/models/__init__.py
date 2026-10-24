@@ -89,9 +89,25 @@ from app.models.marketplace import (
     MarketplaceNotification, MarketplaceSaleConfirmation,
     ModerationActionType,
 )
+from app.models.work_management import (
+    AppNotification, NotificationDeliveryAttempt, NotificationPreference,
+    OperationalTask, RecurrenceKind, TaskActivity, TaskAssignment,
+    TaskCategory, TaskPriority, TaskStatus, WorkerCattleAssignment,
+)
+from app.models.settings_backup import (
+    AccountDeletionRequest, BackupConfiguration, BackupJob, FarmPreference,
+    GoogleDriveCredential, PendingEmailChange, RestoreVerification,
+    SecurityEvent, UserPreference,
+)
 
 
 __all__ = [
+    "AccountDeletionRequest", "BackupConfiguration", "BackupJob", "FarmPreference",
+    "GoogleDriveCredential", "PendingEmailChange", "RestoreVerification",
+    "SecurityEvent", "UserPreference",
+    "AppNotification", "NotificationDeliveryAttempt", "NotificationPreference",
+    "OperationalTask", "RecurrenceKind", "TaskActivity", "TaskAssignment",
+    "TaskCategory", "TaskPriority", "TaskStatus", "WorkerCattleAssignment",
     "ContactPreference", "InquiryStatus", "ListingReportReason",
     "ListingReportStatus", "ListingStatus", "MarketplaceAuditEvent",
     "MarketplaceFavorite", "MarketplaceInquiry", "MarketplaceInquiryMessage",

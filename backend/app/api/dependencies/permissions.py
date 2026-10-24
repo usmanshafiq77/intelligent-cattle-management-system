@@ -52,6 +52,10 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.MARKETPLACE_INQUIRY_MANAGE,
             Permission.MARKETPLACE_SALE_CONFIRM,
             Permission.MARKETPLACE_REPORT_CREATE,
+            Permission.TASK_VIEW,
+            Permission.TASK_MANAGE,
+            Permission.CATTLE_ASSIGNMENT_MANAGE,
+            Permission.NOTIFICATION_VIEW,
             Permission.REPORTS_VIEW,
             Permission.REPORTS_EXPORT,
         }
@@ -61,6 +65,7 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.FARM_VIEW,
             Permission.CATTLE_VIEW,
             Permission.HEALTH_VIEW,
+            Permission.HEALTH_CREATE,
             Permission.MILK_VIEW,
             Permission.MILK_RECORD,
             Permission.MILK_BULK_CREATE,
@@ -71,6 +76,9 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.BREEDING_CALVING_RECORD,
             Permission.MARKETPLACE_VIEW,
             Permission.MARKETPLACE_REPORT_CREATE,
+            Permission.TASK_VIEW,
+            Permission.TASK_UPDATE_ASSIGNED,
+            Permission.NOTIFICATION_VIEW,
         }
     ),
     FarmRole.VETERINARIAN: frozenset(
@@ -88,12 +96,16 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.HEALTH_VISIT_MANAGE,
             Permission.HEALTH_AUDIT_VIEW,
             Permission.MILK_VIEW,
+            Permission.MILK_ANALYTICS_VIEW,
             Permission.BREEDING_VIEW,
             Permission.BREEDING_PREGNANCY_ASSESS,
             Permission.BREEDING_REPORTS_VIEW,
             Permission.FEED_NUTRITION_VIEW,
             Permission.MARKETPLACE_VIEW,
             Permission.MARKETPLACE_REPORT_CREATE,
+            Permission.TASK_VIEW,
+            Permission.TASK_UPDATE_ASSIGNED,
+            Permission.NOTIFICATION_VIEW,
         }
     ),
 }

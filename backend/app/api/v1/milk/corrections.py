@@ -1,4 +1,5 @@
 import json
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -11,9 +12,11 @@ from app.api.v1.auth import get_current_user
 from app.api.v1.milk.dependencies import MILK_PREFIX, commit_or_error, validation_error
 from app.core.permissions import Permission
 from app.db.session import get_db
+from app.models.farm import Farm
 from app.models.milk import MilkCorrectionTarget, MilkQualityMeasurement, MilkRecordCorrection
 from app.models.user import User
 from app.schemas.milk import CorrectionCreate, CorrectionResponse
+from app.services.finance import available_milk
 from app.services.milk import (
     MilkValidationError, QUALITY_CORRECTABLE_FIELDS, SESSION_CORRECTABLE_FIELDS,
     effective_quality, effective_session, scoped_session, validate_correction_values,
@@ -30,6 +33,9 @@ def create_correction(
     current_user: User = Depends(get_current_user), db: Session = Depends(get_db),
 ):
     if data.target_type == MilkCorrectionTarget.SESSION:
+        # Finance milk sales lock this same row. Matching the lock order keeps
+        # a correction from racing a sale and invalidating available stock.
+        db.scalar(select(Farm.id).where(Farm.id == farm_id).with_for_update())
         target = scoped_session(
             db, farm_id=farm_id, session_id=data.target_id,
             cattle_id=data.cattle_id, lock=True,
@@ -54,6 +60,23 @@ def create_correction(
         raise validation_error(error) from None
     resulting = {field: current.get(field) for field in fields}
     resulting.update(replacements)
+    if (
+        data.target_type == MilkCorrectionTarget.SESSION
+        and "volume_liters" in replacements
+    ):
+        corrected_balance = (
+            available_milk(db, farm_id)
+            - current["effective_volume_liters"]
+            + Decimal(str(replacements["volume_liters"]))
+        )
+        if corrected_balance < 0:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    "Correction would reduce recorded production below milk "
+                    "already sold"
+                ),
+            )
     if data.target_type == MilkCorrectionTarget.QUALITY and all(
         resulting.get(field) is None for field in fields - {"notes"}
     ):

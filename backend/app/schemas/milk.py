@@ -373,6 +373,19 @@ class ProductionBreakdown(BaseModel):
     lowest_producing: AnimalProductionTotal | None
 
 
+class MilkAvailabilitySummary(BaseModel):
+    recorded_production_liters: Decimal
+    sold_liters: Decimal
+    available_liters: Decimal
+    allocated_or_consumed_liters: None = None
+    wastage_liters: None = None
+    unmodeled_categories: list[
+        Literal["allocated_or_consumed", "wastage"]
+    ] = Field(
+        default_factory=lambda: ["allocated_or_consumed", "wastage"]
+    )
+
+
 # ============================================================
 # AI Milk Yield Dataset
 # ============================================================

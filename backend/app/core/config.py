@@ -83,6 +83,21 @@ class Settings(BaseSettings):
         gt=0,
         le=10 * 1024 * 1024,
     )
+    PROFILE_AVATAR_MAX_BYTES: int = Field(
+        default=5 * 1024 * 1024,
+        gt=0,
+        le=5 * 1024 * 1024,
+    )
+    BACKUP_ROOT: Path = BACKEND_DIR / "backups" / "encrypted"
+    BACKUP_ENCRYPTION_KEY: SecretStr | None = None
+    BACKUP_KEY_ID: str = "primary"
+    PG_DUMP_PATH: str = "pg_dump"
+    PG_RESTORE_PATH: str = "pg_restore"
+    GOOGLE_DRIVE_CLIENT_ID: str | None = None
+    GOOGLE_DRIVE_CLIENT_SECRET: SecretStr | None = None
+    GOOGLE_DRIVE_REDIRECT_URI: str = "http://localhost:8000/api/v1/admin/backups/google/callback"
+    GOOGLE_DRIVE_OAUTH_SCOPES: str = "https://www.googleapis.com/auth/drive.file"
+    GOOGLE_DRIVE_TIMEOUT_SECONDS: float = Field(default=30, gt=0, le=300)
 
     @field_validator("CORS_ALLOWED_ORIGINS")
     @classmethod
@@ -115,6 +130,7 @@ class Settings(BaseSettings):
         "EMAIL_VERIFICATION_BASE_URL",
         "PASSWORD_RESET_BASE_URL",
         "INVITATION_ACCEPT_BASE_URL",
+        "GOOGLE_DRIVE_REDIRECT_URI",
     )
     @classmethod
     def validate_action_url(cls, value: str | None) -> str | None:
@@ -207,6 +223,14 @@ class Settings(BaseSettings):
             }:
                 raise ValueError("Production JWT_SECRET_KEY must not use a placeholder")
         return self
+
+    @field_validator("BACKUP_KEY_ID")
+    @classmethod
+    def validate_backup_key_id(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized or not normalized.replace("-", "").replace("_", "").isalnum():
+            raise ValueError("BACKUP_KEY_ID must contain only letters, numbers, hyphens or underscores")
+        return normalized
 
     @property
     def verification_action_url(self) -> str:

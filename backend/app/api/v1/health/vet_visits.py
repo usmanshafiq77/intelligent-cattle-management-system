@@ -16,6 +16,7 @@ from app.api.v1.health.dependencies import (
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.models.health import VeterinaryVisit, VeterinaryVisitStatus
+from app.models.farm_member import FarmRole
 from app.models.user import User
 from app.schemas.health import (
     VeterinaryVisitCreate,
@@ -45,11 +46,19 @@ def create_veterinary_visit(
     farm_id: UUID,
     data: VeterinaryVisitCreate,
     access: FarmAccess = Depends(
-        require_farm_permission(Permission.HEALTH_VISIT_MANAGE)
+        require_farm_permission(Permission.HEALTH_CREATE)
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if (
+        access.membership.role == FarmRole.WORKER
+        and (data.planned_at is not None or data.veterinarian_user_id is not None)
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Workers may request veterinary attention but cannot schedule or assign visits",
+        )
     now = datetime.now(timezone.utc)
     try:
         cattle_for_health_action(
@@ -156,6 +165,14 @@ def update_veterinary_visit(
     )
     if visit is None:
         raise HTTPException(status_code=404, detail="Veterinary visit not found")
+    if (
+        data.status == VeterinaryVisitStatus.COMPLETED
+        and access.membership.role != FarmRole.VETERINARIAN
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="Only a Veterinarian member can record a clinical visit outcome",
+        )
     now = datetime.now(timezone.utc)
     try:
         validate_visit_transition(visit.status, data.status)

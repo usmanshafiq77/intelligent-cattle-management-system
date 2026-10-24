@@ -17,6 +17,9 @@ from app.api.v1.feed import router as feed_router
 from app.api.v1.breeding import router as breeding_router
 from app.api.v1.finance import router as finance_router
 from app.api.v1.marketplace import router as marketplace_router
+from app.api.v1.work_management import router as work_management_router
+from app.api.v1.settings import router as settings_router
+from app.api.v1.backups import router as backups_router
 
 from app.db.session import engine
 from app.api.v1.auth import router as auth_router
@@ -89,6 +92,9 @@ app.include_router(feed_router, prefix="/api/v1")
 app.include_router(breeding_router, prefix="/api/v1")
 app.include_router(finance_router, prefix="/api/v1")
 app.include_router(marketplace_router, prefix="/api/v1")
+app.include_router(work_management_router, prefix="/api/v1")
+app.include_router(settings_router, prefix="/api/v1")
+app.include_router(backups_router, prefix="/api/v1")
 
 @app.get("/", tags=["General"])
 def root():

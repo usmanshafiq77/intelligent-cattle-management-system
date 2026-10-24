@@ -3,7 +3,8 @@ import logging
 from uuid import UUID
 
 import jwt
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -38,6 +39,7 @@ from app.services.email_verification import (
     issue_verification_token,
     verify_email_token,
 )
+from app.services.account_settings import InvalidEmailChangeToken, verify_email_change
 
 # NEW: Password reset service imports
 from app.services.password_reset import (
@@ -45,6 +47,12 @@ from app.services.password_reset import (
     hash_reset_token,
     issue_password_reset_token,
     reset_password_with_token,
+)
+from app.services.media_storage import (
+    ALLOWED_IMAGE_TYPES,
+    MediaStorage,
+    detect_image_content_type,
+    get_media_storage,
 )
 
 
@@ -311,6 +319,83 @@ def get_my_profile(
     return current_user
 
 
+def _avatar_storage_key(user: User) -> str:
+    return f"avatars/{user.id}.image"
+
+
+async def _read_avatar_body(request: Request, maximum: int) -> bytes:
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > maximum:
+            raise HTTPException(status_code=413, detail="Profile image is too large")
+        content.extend(chunk)
+    return bytes(content)
+
+
+@router.get("/me/avatar", response_class=FileResponse)
+def get_my_avatar(
+    current_user: User = Depends(get_current_user),
+    storage: MediaStorage = Depends(get_media_storage),
+):
+    try:
+        path = storage.resolve(_avatar_storage_key(current_user))
+        with path.open("rb") as stream:
+            content_type = detect_image_content_type(stream.read(16))
+    except (FileNotFoundError, ValueError, OSError):
+        raise HTTPException(status_code=404, detail="Profile image not found") from None
+    return FileResponse(path=path, media_type=content_type)
+
+
+@router.put("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+async def upload_my_avatar(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    storage: MediaStorage = Depends(get_media_storage),
+):
+    maximum = get_settings().PROFILE_AVATAR_MAX_BYTES
+    content_length = request.headers.get("content-length")
+    if content_length:
+        try:
+            declared_length = int(content_length)
+            if declared_length < 0:
+                raise ValueError
+            if declared_length > maximum:
+                raise HTTPException(status_code=413, detail="Profile image is too large")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid Content-Length") from None
+    content = await _read_avatar_body(request, maximum)
+    if not content:
+        raise HTTPException(status_code=422, detail="Profile image content is required")
+    try:
+        detected_type = detect_image_content_type(content)
+    except ValueError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    declared_type = request.headers.get("content-type", "").split(";", 1)[0].lower()
+    if declared_type not in {detected_type, "application/octet-stream"}:
+        raise HTTPException(status_code=422, detail="Declared content type does not match image content")
+    if detected_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=422, detail="Unsupported profile image type")
+    try:
+        storage.save(_avatar_storage_key(current_user), content)
+    except (OSError, ValueError):
+        logger.exception("Profile image upload failed for user %s", current_user.id)
+        raise HTTPException(status_code=500, detail="Could not store profile image") from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/me/avatar", status_code=status.HTTP_204_NO_CONTENT)
+def remove_my_avatar(
+    current_user: User = Depends(get_current_user),
+    storage: MediaStorage = Depends(get_media_storage),
+):
+    try:
+        storage.delete(_avatar_storage_key(current_user))
+    except (OSError, ValueError):
+        logger.exception("Profile image removal failed for user %s", current_user.id)
+        raise HTTPException(status_code=500, detail="Could not remove profile image") from None
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/verify-email",
     response_model=MessageResponse,
@@ -328,10 +413,13 @@ def verify_email(
 
     except InvalidVerificationTokenError:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Verification token is invalid or expired",
-        ) from None
+        try:
+            verify_email_change(db, data.token)
+            db.commit()
+            return MessageResponse(detail="Email address changed and verified successfully. Please log in again.")
+        except InvalidEmailChangeToken:
+            db.rollback()
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Verification token is invalid or expired") from None
 
     except SQLAlchemyError:
         db.rollback()

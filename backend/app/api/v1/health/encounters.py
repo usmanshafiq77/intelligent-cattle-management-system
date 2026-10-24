@@ -6,7 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.farms import FarmAccess
-from app.api.dependencies.permissions import require_farm_permission
+from app.api.dependencies.permissions import (
+    require_farm_permission,
+    require_veterinarian_permission,
+)
 from app.api.v1.auth import get_current_user
 from app.api.v1.health.dependencies import (
     HEALTH_PREFIX,
@@ -25,6 +28,7 @@ from app.models.health import (
     VaccinationAdministration,
     VeterinaryVisit,
 )
+from app.models.farm_member import FarmRole
 from app.models.user import User
 from app.schemas.health import (
     AnimalHealthHistoryResponse,
@@ -61,6 +65,23 @@ def create_encounter(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    if access.membership.role != FarmRole.VETERINARIAN and any(
+        (
+            data.finalize,
+            data.clinical_observations,
+            data.professional_name,
+            data.responsible_user_id,
+            data.follow_up_due_at,
+            data.follow_up_notes,
+        )
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Farm staff may report symptoms, but clinical examination "
+                "and follow-up fields require a Veterinarian membership"
+            ),
+        )
     try:
         animal = cattle_for_health_action(
             db, farm_id=farm_id, cattle_id=data.cattle_id
@@ -206,7 +227,7 @@ def finalize_encounter(
     encounter_id: UUID,
     data: EncounterFinalize,
     access: FarmAccess = Depends(
-        require_farm_permission(Permission.HEALTH_CREATE)
+        require_veterinarian_permission(Permission.HEALTH_CREATE)
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

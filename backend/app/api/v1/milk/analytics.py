@@ -5,7 +5,7 @@ from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.farms import FarmAccess
@@ -14,12 +14,13 @@ from app.api.v1.milk.dependencies import MILK_PREFIX
 from app.core.permissions import Permission
 from app.db.session import get_db
 from app.models.cattle import Cattle
+from app.models.finance import MilkSale
 from app.models.milk import MilkLactation, MilkQualityMeasurement, MilkingSession
 from app.schemas.milk import (
-    AnimalProductionTotal, MilkDatasetRow, ProductionBreakdown,
+    AnimalProductionTotal, MilkAvailabilitySummary, MilkDatasetRow, ProductionBreakdown,
     ProductionBucket, ProductionSummary, SessionTotal,
 )
-from app.services.milk import effective_qualities, effective_sessions
+from app.services.milk import effective_qualities, effective_sessions, effective_volume_expression
 
 
 router = APIRouter(prefix=f"{MILK_PREFIX}/analytics")
@@ -115,6 +116,30 @@ def production_breakdown(
         animal_totals=animal_totals,
         highest_producing=animal_totals[0] if animal_totals else None,
         lowest_producing=animal_totals[-1] if animal_totals else None,
+    )
+
+
+@router.get("/availability", response_model=MilkAvailabilitySummary)
+def milk_availability(
+    farm_id: UUID,
+    access: FarmAccess = Depends(require_farm_permission(Permission.FINANCE_VIEW)),
+    db: Session = Depends(get_db),
+):
+    """Return the canonical all-time milk balance without financial values."""
+    produced = db.scalar(
+        select(func.coalesce(func.sum(effective_volume_expression()), 0)).where(
+            MilkingSession.farm_id == farm_id
+        )
+    ) or Decimal("0")
+    sold = db.scalar(
+        select(func.coalesce(func.sum(MilkSale.quantity_liters), 0)).where(
+            MilkSale.farm_id == farm_id
+        )
+    ) or Decimal("0")
+    return MilkAvailabilitySummary(
+        recorded_production_liters=produced,
+        sold_liters=sold,
+        available_liters=produced - sold,
     )
 
 

@@ -2,9 +2,9 @@
 from logging.config import fileConfig
 
 from alembic import context
-from sqlalchemy import engine_from_config, pool
+from sqlalchemy import engine_from_config, pool, text
 
-from app.core.config import get_settings
+from app.core.migration_config import get_migration_settings
 from app.db.base import Base
 
 # Import all models so Alembic can detect tables
@@ -15,7 +15,7 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-settings = get_settings()
+settings = get_migration_settings()
 
 target_metadata = Base.metadata
 
@@ -71,6 +71,23 @@ def run_migrations_online():
         poolclass=pool.NullPool,
     )
     with connectable.connect() as connection:
+        actual_database = connection.scalar(text("SELECT current_database()"))
+        if actual_database != settings.DB_NAME:
+            raise RuntimeError(
+                "Alembic connected to an unexpected database; migration stopped"
+            )
+        connection.exec_driver_sql(
+            f'SET search_path TO "{settings.DB_SCHEMA}"'
+        )
+        actual_schema = connection.scalar(text("SELECT current_schema()"))
+        if actual_schema != settings.DB_SCHEMA:
+            raise RuntimeError(
+                "Alembic connected to an unexpected schema; migration stopped"
+            )
+        # SQLAlchemy 2 starts a transaction for SET/SELECT. Finish that
+        # validation transaction before Alembic opens its transactional-DDL
+        # scope; otherwise closing the outer connection rolls upgrades back.
+        connection.commit()
         context.configure(
             connection=connection,
             target_metadata=target_metadata,

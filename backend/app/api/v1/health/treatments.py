@@ -6,7 +6,10 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.farms import FarmAccess
-from app.api.dependencies.permissions import require_farm_permission
+from app.api.dependencies.permissions import (
+    require_farm_permission,
+    require_veterinarian_permission,
+)
 from app.api.v1.auth import get_current_user
 from app.api.v1.health.dependencies import (
     HEALTH_PREFIX,
@@ -54,7 +57,7 @@ def create_treatment(
     farm_id: UUID,
     data: TreatmentCreate,
     access: FarmAccess = Depends(
-        require_farm_permission(Permission.HEALTH_TREATMENT_MANAGE)
+        require_veterinarian_permission(Permission.HEALTH_TREATMENT_MANAGE)
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -163,7 +166,7 @@ def transition_treatment(
     treatment_id: UUID,
     data: TreatmentTransition,
     access: FarmAccess = Depends(
-        require_farm_permission(Permission.HEALTH_TREATMENT_MANAGE)
+        require_veterinarian_permission(Permission.HEALTH_TREATMENT_MANAGE)
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -214,7 +217,7 @@ def administer_medication(
     treatment_id: UUID,
     data: MedicationAdministrationCreate,
     access: FarmAccess = Depends(
-        require_farm_permission(Permission.HEALTH_MEDICATION_ADMINISTER)
+        require_veterinarian_permission(Permission.HEALTH_MEDICATION_ADMINISTER)
     ),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),

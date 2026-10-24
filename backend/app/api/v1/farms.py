@@ -13,6 +13,8 @@ from app.api.dependencies.farms import (
     FarmAccess,
     require_active_farm_member,
 )
+from app.api.dependencies.permissions import require_farm_permission
+from app.core.permissions import Permission
 from app.db.session import get_db
 from app.models.user import User
 from app.models.farm import Farm
@@ -24,6 +26,7 @@ from app.models.farm_member import (
 from app.schemas.farm import (
     FarmCreate,
     FarmResponse,
+    FarmUpdate,
 )
 
 
@@ -112,4 +115,28 @@ def get_my_farms(
 def get_farm(
     access: FarmAccess = Depends(require_active_farm_member),
 ):
+    return access.farm
+
+
+@router.patch(
+    "/{farm_id}",
+    response_model=FarmResponse,
+)
+def update_farm(
+    data: FarmUpdate,
+    access: FarmAccess = Depends(
+        require_farm_permission(Permission.FARM_MANAGE)
+    ),
+    db: Session = Depends(get_db),
+):
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(access.farm, field, value)
+
+    try:
+        db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise
+
+    db.refresh(access.farm)
     return access.farm
