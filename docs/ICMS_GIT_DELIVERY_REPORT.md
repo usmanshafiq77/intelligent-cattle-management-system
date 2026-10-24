@@ -35,7 +35,8 @@ The pre-existing untracked file `tatus --short` contains terminal diff-stat outp
 
 ## Commit and push record
 
-- Implementation commit: `acbbde5` (`feat: complete core farm management workflows`)
-- Audit/runbook documentation commit: recorded in the final delivery response because a commit cannot contain its own hash
-- Push: pending the final remote-divergence check
-- Remaining uncommitted item expected: `tatus --short` only
+- Implementation commit: `acbbde5facd5fe130c7a7bc3eaa89db9c9d0ea7a` (`feat: complete core farm management workflows`)
+- Audit/runbook documentation commit: `64a7cd5567e750800347896ad277543b891e9fdd` (`docs: add ICMS audit and delivery runbooks`)
+- Push: succeeded by normal non-force update from `0f6c861` to `64a7cd5`
+- Remote verification: `refs/heads/feature/step19-react-native` resolved to `64a7cd5567e750800347896ad277543b891e9fdd`
+- Remaining uncommitted item: `tatus --short` only
