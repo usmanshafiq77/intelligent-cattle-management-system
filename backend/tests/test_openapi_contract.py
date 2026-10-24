@@ -5,7 +5,7 @@ from app.main import app
 
 
 STABILIZED_OPENAPI_SHA256 = (
-    "4fff2d3b792e64e6a526681affbd64a0b36c3acba57a3b967f43bbee515dd784"
+    "a0bdd2d6394159f430df8e78bc8f03aedd21807df1323b3ab7ebd9f2ad784382"
 )
 HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
@@ -25,6 +25,6 @@ def test_stabilized_openapi_contract_is_reviewed():
         if method in HTTP_METHODS
     )
 
-    assert len(specification["paths"]) == 143
-    assert operation_count == 190
+    assert len(specification["paths"]) == 178
+    assert operation_count == 237
     assert hashlib.sha256(canonical).hexdigest() == STABILIZED_OPENAPI_SHA256

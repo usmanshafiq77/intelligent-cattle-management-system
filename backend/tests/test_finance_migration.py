@@ -31,14 +31,14 @@ def test_finance_migration_isolated_upgrade_downgrade_reupgrade():
             connection.execute(text("INSERT INTO users (id,full_name,email,password_hash,is_system_admin,status,token_version) VALUES (:u,'Existing','finance-migration@example.com','x',false,'ACTIVE',0)"),{"u":user_id})
             connection.execute(text("INSERT INTO farms (id,name,owner_id) VALUES (:f,'Existing Farm',:u)"),{"f":farm_id,"u":user_id}); connection.commit()
             command.upgrade(config,"head")
-            assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="f1a3b5c7d906"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="b3d5f7a9c210"
             assert TABLES <= set(inspect(connection).get_table_names())
             assert connection.scalar(text("SELECT count(*) FROM farms"))==1
             assert connection.scalar(text("SELECT count(*) FROM permissions WHERE code LIKE 'finance.%'"))==10
             assert compare_metadata(MigrationContext.configure(connection,opts={"compare_type":True}),Base.metadata)==[]
             command.downgrade(config,"d9e1f2a3b804"); assert not(TABLES & set(inspect(connection).get_table_names()))
             assert connection.scalar(text("SELECT count(*) FROM farms"))==1
-            command.upgrade(config,"head"); assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="f1a3b5c7d906"
+            command.upgrade(config,"head"); assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="b3d5f7a9c210"
             command.downgrade(config,"base")
     finally:
         if engine: engine.dispose()

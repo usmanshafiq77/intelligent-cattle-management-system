@@ -63,6 +63,7 @@ FINANCE_MIGRATION_PERMISSIONS = {
     "finance.reports.view", "finance.audit.view",
 }
 MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
+WORK_MIGRATION_PERMISSIONS = {"task.view", "task.manage", "task.update.assigned", "cattle.assignment.manage", "notification.view"}
 
 
 def test_health_migration_lifecycle_seed_and_tenant_constraints():
@@ -146,8 +147,9 @@ def test_health_migration_lifecycle_seed_and_tenant_constraints():
                 - FEED_MIGRATION_PERMISSIONS
                     - BREEDING_MIGRATION_PERMISSIONS
                     - FINANCE_MIGRATION_PERMISSIONS
-                    - MARKETPLACE_MIGRATION_PERMISSIONS
-            )
+                        - MARKETPLACE_MIGRATION_PERMISSIONS
+                        - WORK_MIGRATION_PERMISSIONS
+                )
 
             actual_step17_permissions = set(
                 connection.scalars(

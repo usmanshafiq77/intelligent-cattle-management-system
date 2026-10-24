@@ -37,6 +37,7 @@ FINANCE_MIGRATION_PERMISSIONS = {
     "finance.reports.view", "finance.audit.view",
 }
 MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
+WORK_MIGRATION_PERMISSIONS = {"task.view", "task.manage", "task.update.assigned", "cattle.assignment.manage", "notification.view"}
 
 
 def test_feed_migration_lifecycle_isolated_and_data_safe():
@@ -81,7 +82,7 @@ def test_feed_migration_lifecycle_isolated_and_data_safe():
             command.upgrade(config, "c8d0e1f2a703")
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "c8d0e1f2a703"
             assert FEED_TABLES <= set(inspect(connection).get_table_names())
-            assert set(connection.scalars(text("SELECT code FROM permissions"))) == set(PERMISSION_CODES) - BREEDING_MIGRATION_PERMISSIONS - FINANCE_MIGRATION_PERMISSIONS - MARKETPLACE_MIGRATION_PERMISSIONS
+            assert set(connection.scalars(text("SELECT code FROM permissions"))) == set(PERMISSION_CODES) - BREEDING_MIGRATION_PERMISSIONS - FINANCE_MIGRATION_PERMISSIONS - MARKETPLACE_MIGRATION_PERMISSIONS - WORK_MIGRATION_PERMISSIONS
             assert connection.scalar(text("SELECT count(*) FROM farms")) == 1
 
             item_id = uuid.uuid4()
@@ -105,7 +106,7 @@ def test_feed_migration_lifecycle_isolated_and_data_safe():
             assert connection.scalar(text("SELECT count(*) FROM farms")) == 1
             connection.rollback()
             command.upgrade(config, "head")
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f1a3b5c7d906"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "b3d5f7a9c210"
             assert compare_metadata(
                 MigrationContext.configure(connection, opts={"compare_type": True}),
                 Base.metadata,

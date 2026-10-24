@@ -14,9 +14,8 @@ from app.models.health import (
     VaccinationAdministration,
     VaccinationSchedule,
 )
-from app.models.user import UserStatus
+from app.models.user import User, UserStatus
 from tests.helpers import authorization_header, create_owned_farm, create_user
-from tests.test_rbac import create_role
 
 
 pytestmark = pytest.mark.integration
@@ -54,7 +53,11 @@ def setup_farm(client, db, suffix=None):
     owner = create_user(db, email=f"health-{suffix}@example.com")
     farm = create_owned_farm(db, owner=owner, name=f"Health {suffix[:8]}")
     animal = register_animal(client, farm, owner)
-    return owner, farm, animal
+    veterinarian = create_user(
+        db, email=f"health-vet-{suffix}@example.com"
+    )
+    add_member(db, farm, veterinarian, FarmRole.VETERINARIAN)
+    return veterinarian, farm, animal
 
 
 def create_encounter(client, farm, user, cattle_id, **overrides):
@@ -188,29 +191,76 @@ def test_health_routes_require_authentication_and_valid_tokens(client, db_sessio
     assert animal["id"]
 
 
-def test_worker_is_read_only_and_custom_role_can_create_encounter(client, db_session):
-    owner, farm, animal = setup_farm(client, db_session)
+def test_worker_can_report_observation_but_cannot_record_clinical_fields(
+    client, db_session
+):
+    veterinarian, farm, animal = setup_farm(client, db_session)
     worker = create_user(db_session, email=f"worker-{uuid.uuid4().hex}@example.com")
-    membership = add_member(db_session, farm, worker)
+    add_member(db_session, farm, worker)
     assert create_encounter(client, farm, worker, animal["id"]).status_code == 403
+    observation = create_encounter(
+        client,
+        farm,
+        worker,
+        animal["id"],
+        clinical_observations=None,
+    )
+    assert observation.status_code == 201
+    assert observation.json()["status"] == "DRAFT"
+    visit_request = client.post(
+        f"/api/v1/farms/{farm.id}/health/veterinary-visits",
+        headers=authorization_header(worker),
+        json={
+            "cattle_id": animal["id"],
+            "reason": "Persistent cough requires veterinary review",
+        },
+    )
+    assert visit_request.status_code == 201
+    forbidden_schedule = client.post(
+        f"/api/v1/farms/{farm.id}/health/veterinary-visits",
+        headers=authorization_header(worker),
+        json={
+            "cattle_id": animal["id"],
+            "reason": "Worker attempted scheduling",
+            "planned_at": (datetime.now(timezone.utc) + timedelta(days=1)).isoformat(),
+        },
+    )
+    assert forbidden_schedule.status_code == 403
     assert client.get(
         f"/api/v1/farms/{farm.id}/health/encounters",
         headers=authorization_header(worker),
     ).status_code == 200
-    role_id = create_role(
+    assert veterinarian.id
+
+
+def test_owner_can_report_observation_but_cannot_impersonate_veterinarian(
+    client, db_session
+):
+    veterinarian, farm, animal = setup_farm(client, db_session)
+    owner = db_session.get(User, farm.owner_id)
+    observation = create_encounter(
         client,
-        owner,
         farm,
-        name="Health Recorder",
-        permissions=["health.manage"],
-    ).json()["id"]
-    assigned = client.post(
-        f"/api/v1/farms/{farm.id}/staff/{membership.id}/roles",
-        headers=authorization_header(owner),
-        json={"role_ids": [role_id]},
+        owner,
+        animal["id"],
+        clinical_observations=None,
     )
-    assert assigned.status_code == 200
-    assert create_encounter(client, farm, worker, animal["id"]).status_code == 201
+    assert observation.status_code == 201
+    assert create_encounter(client, farm, owner, animal["id"]).status_code == 403
+    clinical = create_encounter(
+        client, farm, veterinarian, animal["id"], finalize=True
+    )
+    diagnosis = client.post(
+        f"/api/v1/farms/{farm.id}/health/diagnoses",
+        headers=authorization_header(owner),
+        json={
+            "encounter_id": clinical.json()["id"],
+            "condition_name": "Owner-entered diagnosis",
+            "severity": "MILD",
+            "diagnosed_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert diagnosis.status_code == 403
 
 
 @pytest.mark.parametrize("inactive_kind", ["membership", "user"])
@@ -426,7 +476,7 @@ def test_terminal_cattle_do_not_produce_actionable_health_reminders(
     assert encounter.status_code == 201
     sold = client.post(
         f"/api/v1/farms/{farm.id}/cattle/{animal['id']}/lifecycle",
-        headers=authorization_header(owner),
+        headers=authorization_header(db_session.get(User, farm.owner_id)),
         json={
             "new_status": "SOLD",
             "effective_at": datetime.now(timezone.utc).isoformat(),
@@ -660,7 +710,7 @@ def test_finalized_cattle_blocks_new_actions_but_history_remains_readable(
     assert encounter.status_code == 201
     transition = client.post(
         f"/api/v1/farms/{farm.id}/cattle/{animal['id']}/lifecycle",
-        headers=authorization_header(owner),
+        headers=authorization_header(db_session.get(User, farm.owner_id)),
         json={
             "new_status": "SOLD",
             "effective_at": datetime.now(timezone.utc).isoformat(),

@@ -119,6 +119,7 @@ test("cattle media upload matches the backend raw-body contract", () => {
 test("health and milk actions match reviewed transition endpoints", () => {
   healthApi.finalizeEncounter("farm", "encounter", { notes: "complete" });
   milkApi.getActiveLactation("farm", "cow");
+  milkApi.getAvailability("farm");
 
   expect(apiClient.post).toHaveBeenCalledWith(
     "/farms/farm/health/encounters/encounter/finalize",
@@ -127,6 +128,10 @@ test("health and milk actions match reviewed transition endpoints", () => {
   expect(apiClient.get).toHaveBeenCalledWith(
     "/farms/farm/milk/lactations/active",
     { query: { cattle_id: "cow" } },
+  );
+  expect(apiClient.get).toHaveBeenCalledWith(
+    "/farms/farm/milk/analytics/availability",
+    undefined,
   );
 });
 

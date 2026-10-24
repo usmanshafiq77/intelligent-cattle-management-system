@@ -47,7 +47,7 @@ def test_breeding_migration_upgrade_downgrade_reupgrade_isolated():
             connection.commit()
 
             command.upgrade(config, "head")
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f1a3b5c7d906"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "b3d5f7a9c210"
             assert TABLES <= set(inspect(connection).get_table_names())
             assert connection.scalar(text("SELECT count(*) FROM cattle")) == 1
             assert connection.scalar(text("SELECT count(*) FROM permissions WHERE code LIKE 'breeding.%'")) == 8
@@ -57,7 +57,7 @@ def test_breeding_migration_upgrade_downgrade_reupgrade_isolated():
             assert not (TABLES & set(inspect(connection).get_table_names()))
             assert connection.scalar(text("SELECT count(*) FROM cattle")) == 1
             command.upgrade(config, "head")
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f1a3b5c7d906"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "b3d5f7a9c210"
             command.downgrade(config, "base")
     finally:
         if engine: engine.dispose()

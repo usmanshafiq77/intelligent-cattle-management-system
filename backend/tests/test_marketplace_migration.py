@@ -25,7 +25,7 @@ def test_marketplace_migration_isolated_upgrade_downgrade_reupgrade():
             assert connection.scalar(text("SELECT current_schema()"))==schema; connection.rollback(); config=Config(str(ROOT/"alembic.ini")); config.set_main_option("script_location",str(ROOT/"alembic")); config.attributes["connection"]=connection
             command.upgrade(config,"e0f2a3b4c905"); before=set(inspect(connection).get_table_names()); command.upgrade(config,"head")
             inspector=inspect(connection)
-            assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="f1a3b5c7d906"; assert TABLES<=set(inspector.get_table_names()); assert before<=set(inspector.get_table_names()); assert connection.scalar(text("SELECT count(*) FROM permissions WHERE code LIKE 'marketplace.%'"))==6
+            assert connection.scalar(text("SELECT version_num FROM alembic_version"))=="b3d5f7a9c210"; assert TABLES<=set(inspector.get_table_names()); assert before<=set(inspector.get_table_names()); assert connection.scalar(text("SELECT count(*) FROM permissions WHERE code LIKE 'marketplace.%'"))==6
             assert {fk["name"] for fk in inspector.get_foreign_keys("marketplace_sale_confirmations")} >= {"fk_marketplace_sale_listing_scope","fk_marketplace_sale_finance_scope"}
             assert {fk["name"] for fk in inspector.get_foreign_keys("marketplace_inquiries")} >= {"fk_marketplace_inquiry_listing_scope"}
             assert {index["name"] for index in inspector.get_indexes("marketplace_listings")} >= {"uq_marketplace_active_cattle","ix_marketplace_browse"}

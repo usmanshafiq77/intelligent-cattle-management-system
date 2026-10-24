@@ -91,6 +91,54 @@ def test_inactive_membership_cannot_access_farm(client, db_session):
     assert response.status_code == 404
 
 
+def test_owner_can_update_farm_profile_but_worker_cannot(client, db_session):
+    owner = create_user(db_session, email="farm-update-owner@example.com")
+    worker = create_user(db_session, email="farm-update-worker@example.com")
+    farm = create_owned_farm(db_session, owner=owner)
+    db_session.add(
+        FarmMember(
+            farm_id=farm.id,
+            user_id=worker.id,
+            role=FarmRole.WORKER,
+            status=MemberStatus.ACTIVE,
+        )
+    )
+    db_session.commit()
+
+    denied = client.patch(
+        f"/api/v1/farms/{farm.id}",
+        headers=authorization_header(worker),
+        json={"name": "Unauthorized rename"},
+    )
+    assert denied.status_code == 403
+
+    updated = client.patch(
+        f"/api/v1/farms/{farm.id}",
+        headers=authorization_header(owner),
+        json={
+            "name": "Updated Farm",
+            "location": "Lahore",
+            "description": "Updated profile",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["name"] == "Updated Farm"
+    assert updated.json()["location"] == "Lahore"
+
+
+def test_farm_update_rejects_empty_or_null_name(client, db_session):
+    owner = create_user(db_session, email="farm-update-validation@example.com")
+    farm = create_owned_farm(db_session, owner=owner)
+    headers = authorization_header(owner)
+
+    assert client.patch(
+        f"/api/v1/farms/{farm.id}", headers=headers, json={}
+    ).status_code == 422
+    assert client.patch(
+        f"/api/v1/farms/{farm.id}", headers=headers, json={"name": None}
+    ).status_code == 422
+
+
 def test_farm_creation_rolls_back_both_records_on_commit_failure(
     db_session,
     monkeypatch,

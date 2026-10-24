@@ -60,6 +60,7 @@ FINANCE_MIGRATION_PERMISSIONS = {
     "finance.reports.view", "finance.audit.view",
 }
 MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
+WORK_MIGRATION_PERMISSIONS = {"task.view", "task.manage", "task.update.assigned", "cattle.assignment.manage", "notification.view"}
 
 # Exact permission catalog expected at the RBAC migration revision.
 STEP_16_PERMISSION_CODES = (
@@ -70,6 +71,7 @@ STEP_16_PERMISSION_CODES = (
     - BREEDING_MIGRATION_PERMISSIONS
     - FINANCE_MIGRATION_PERMISSIONS
     - MARKETPLACE_MIGRATION_PERMISSIONS
+    - WORK_MIGRATION_PERMISSIONS
 )
 
 

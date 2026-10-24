@@ -71,6 +71,22 @@ EXPECTED_TABLES = {
     "marketplace_moderation_actions",
     "marketplace_notifications",
     "marketplace_sale_confirmations",
+    "operational_tasks",
+    "task_assignments",
+    "task_activities",
+    "worker_cattle_assignments",
+    "app_notifications",
+    "notification_preferences",
+    "notification_delivery_attempts",
+    "user_preferences",
+    "pending_email_changes",
+    "security_events",
+    "account_deletion_requests",
+    "farm_preferences",
+    "google_drive_credentials",
+    "backup_configuration",
+    "backup_jobs",
+    "restore_verifications",
 }
 
 EXPECTED_REVISIONS = [
@@ -85,6 +101,8 @@ EXPECTED_REVISIONS = [
     "d9e1f2a3b804",
     "e0f2a3b4c905",
     "f1a3b5c7d906",
+    "a2c4e6f8b108",
+    "b3d5f7a9c210",
 ]
 
 

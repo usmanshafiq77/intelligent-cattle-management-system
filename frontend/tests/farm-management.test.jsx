@@ -120,13 +120,18 @@ test("selection screen provides new-user onboarding for an empty verified list",
   expect(onCreate).toHaveBeenCalled();
 });
 
-test("farm details fetches and renders a server-confirmed read-only response", async () => {
+test("farm owner can edit a server-confirmed farm profile", async () => {
   mockFarm = { ...mockFarm, status: "ready", activeFarm: FARM, membership: { role: "FARM_OWNER", status: "ACTIVE" }, can: jest.fn(() => true) };
-  const api = { get: jest.fn().mockResolvedValue(FARM) };
+  const api = { get: jest.fn().mockResolvedValue(FARM), update: jest.fn().mockResolvedValue({ ...FARM, name: "Updated Farm" }) };
   const screen = renderThemed(<FarmDetailsScreen onBack={jest.fn()} api={api} />);
   await waitFor(() => expect(screen.getByText("Green Valley Dairy")).toBeTruthy());
   expect(api.get).toHaveBeenCalledWith("farm-a", expect.any(Object));
-  expect(screen.getByText(/Editing and deletion are unavailable/i)).toBeTruthy();
+  fireEvent.press(screen.getByTestId("farm-edit-open"));
+  fireEvent.changeText(screen.getByTestId("farm-edit-name"), "Updated Farm");
+  fireEvent.press(screen.getByTestId("farm-edit-save"));
+  await waitFor(() => expect(api.update).toHaveBeenCalledWith("farm-a", expect.objectContaining({ name: "Updated Farm" })));
+  await waitFor(() => expect(screen.getByText("Farm profile updated.")).toBeTruthy());
+  expect(mockFarm.refreshFarms).toHaveBeenCalled();
 });
 
 test.each([401, 403, 404, 409, 429, 503])("farm detail error %s is safe and retryable", async (status) => {

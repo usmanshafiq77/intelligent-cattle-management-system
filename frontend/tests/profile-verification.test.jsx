@@ -27,7 +27,7 @@ function createTransport(token = "token") {
   };
 }
 
-function renderProfile({ user = USER, api = { getCurrentUser: jest.fn().mockResolvedValue(user) }, transport = createTransport(), onVerify = jest.fn() } = {}) {
+function renderProfile({ user = USER, api = { getCurrentUser: jest.fn().mockResolvedValue(user) }, transport = createTransport(), onVerify = jest.fn(), avatarApi = { getAvatar: jest.fn().mockRejectedValue(new ApiError("Missing", { status: 404 })), uploadAvatar: jest.fn(), removeAvatar: jest.fn() }, imagePicker } = {}) {
   const provider = { getToken: jest.fn(), setToken: jest.fn(), removeToken: jest.fn() };
   return {
     onVerify,
@@ -35,7 +35,7 @@ function renderProfile({ user = USER, api = { getCurrentUser: jest.fn().mockReso
     ...render(
       <ThemeProvider persistPreference={false}>
         <AuthProvider transport={transport} tokenProvider={provider} api={api}>
-          <ProfileScreen onVerify={onVerify} />
+          <ProfileScreen onVerify={onVerify} avatarApi={avatarApi} imagePicker={imagePicker} />
         </AuthProvider>
       </ThemeProvider>,
     ),
@@ -56,7 +56,7 @@ test("profile renders verified server user data with no hardcoded identity", asy
   expect(screen.getAllByText("owner@example.com")).toHaveLength(2);
   expect(screen.getByLabelText("Status: Email verified")).toBeTruthy();
   expect(screen.getByLabelText("Status: Active account")).toBeTruthy();
-  expect(screen.getByText(/Profile editing and password changes are unavailable/)).toBeTruthy();
+  expect(screen.getByText(/Use Settings to update profile details/)).toBeTruthy();
   expect(screen.queryByText("John Doe")).toBeNull();
 });
 
@@ -94,6 +94,58 @@ test("profile never presents stale private data after refresh failure", async ()
   fireEvent.press(screen.getByTestId("profile-refresh"));
   await waitFor(() => expect(api.getCurrentUser).toHaveBeenCalledTimes(2));
   await waitFor(() => expect(screen.queryByText("Farm Owner")).toBeNull());
+});
+
+test("profile shows a default avatar and uploads a selected image", async () => {
+  const avatarApi = {
+    getAvatar: jest.fn().mockRejectedValueOnce(new ApiError("Missing", { status: 404 })).mockResolvedValueOnce("data:image/png;base64,new"),
+    uploadAvatar: jest.fn().mockResolvedValue(null),
+    removeAvatar: jest.fn(),
+  };
+  const file = { type: "image/png" };
+  const imagePicker = { launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: false, assets: [{ uri: "blob:selected", mimeType: "image/png", file }] }) };
+  const screen = renderProfile({ avatarApi, imagePicker });
+  await waitFor(() => expect(screen.getByTestId("profile-avatar-default")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("profile-avatar-select"));
+  await waitFor(() => expect(avatarApi.uploadAvatar).toHaveBeenCalledWith(file, "image/png"));
+  await waitFor(() => expect(screen.getByTestId("profile-avatar-image")).toBeTruthy());
+  expect(screen.getByText("Profile picture updated.")).toBeTruthy();
+});
+
+test("profile replaces and removes an existing picture", async () => {
+  const avatarApi = {
+    getAvatar: jest.fn().mockResolvedValue("data:image/png;base64,current"),
+    uploadAvatar: jest.fn().mockResolvedValue(null),
+    removeAvatar: jest.fn().mockResolvedValue(null),
+  };
+  const file = { type: "image/webp" };
+  const imagePicker = { launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: false, assets: [{ uri: "blob:replacement", mimeType: "image/webp", file }] }) };
+  const screen = renderProfile({ avatarApi, imagePicker });
+  await waitFor(() => expect(screen.getByLabelText("Replace profile picture")).toBeTruthy());
+  fireEvent.press(screen.getByLabelText("Replace profile picture"));
+  await waitFor(() => expect(avatarApi.uploadAvatar).toHaveBeenCalledWith(file, "image/webp"));
+  fireEvent.press(screen.getByLabelText("Remove profile picture"));
+  await waitFor(() => expect(avatarApi.removeAvatar).toHaveBeenCalledTimes(1));
+  expect(screen.getByTestId("profile-avatar-default")).toBeTruthy();
+  expect(screen.getByText("Profile picture removed.")).toBeTruthy();
+});
+
+test("profile uploads a native gallery URI and reports invalid-image failures", async () => {
+  const nativeBlob = { type: "image/jpeg" };
+  const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true, blob: jest.fn().mockResolvedValue(nativeBlob) });
+  const avatarApi = {
+    getAvatar: jest.fn().mockRejectedValue(new ApiError("Missing", { status: 404 })),
+    uploadAvatar: jest.fn().mockRejectedValue(new ApiError("Invalid", { status: 422 })),
+    removeAvatar: jest.fn(),
+  };
+  const imagePicker = { launchImageLibraryAsync: jest.fn().mockResolvedValue({ canceled: false, assets: [{ uri: "file:///gallery/photo.jpg", mimeType: "image/jpeg" }] }) };
+  const screen = renderProfile({ avatarApi, imagePicker });
+  await waitFor(() => expect(screen.getByTestId("profile-avatar-default")).toBeTruthy());
+  fireEvent.press(screen.getByTestId("profile-avatar-select"));
+  await waitFor(() => expect(avatarApi.uploadAvatar).toHaveBeenCalledWith(nativeBlob, "image/jpeg"));
+  expect(fetchSpy).toHaveBeenCalledWith("file:///gallery/photo.jpg");
+  await waitFor(() => expect(screen.getByText("Choose a valid JPEG, PNG, or WebP image.")).toBeTruthy());
+  fetchSpy.mockRestore();
 });
 
 test("verification sends only the entered one-time token and clears it after success", async () => {

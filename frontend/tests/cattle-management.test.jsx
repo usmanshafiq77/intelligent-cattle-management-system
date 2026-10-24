@@ -147,11 +147,17 @@ describe("authoritative dashboard", () => {
   test("herd dashboard remains functional across all three centralized themes", async () => {
     const screen = renderThemed(<DashboardScreen onNavigate={jest.fn()} api={api()} />);
     await waitFor(() => expect(screen.getByText("Total Cattle")).toBeTruthy());
-    fireEvent.press(screen.getByText("Midnight Teal"));
+    expect(screen.getByTestId("dashboard-theme-selector")).toBeTruthy();
+    expect(screen.queryByText("Emerald Luxury")).toBeNull();
+    expect(screen.queryByText("Midnight Teal")).toBeNull();
+    expect(screen.queryByText("Royal Indigo")).toBeNull();
+    expect(screen.getByTestId("theme-selected-emerald")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Use Midnight Teal theme"));
     expect(screen.getByText("Total Cattle")).toBeTruthy();
-    fireEvent.press(screen.getByText("Royal Indigo"));
+    expect(screen.getByTestId("theme-selected-midnight")).toBeTruthy();
+    fireEvent.press(screen.getByLabelText("Use Royal Indigo theme"));
     expect(screen.getByText("Total Cattle")).toBeTruthy();
-    fireEvent.press(screen.getByText("Emerald Luxury"));
+    fireEvent.press(screen.getByLabelText("Use Emerald Luxury theme"));
     expect(screen.getByText("Herd by Lifecycle Status")).toBeTruthy();
   });
 

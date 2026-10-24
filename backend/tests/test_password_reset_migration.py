@@ -94,7 +94,7 @@ def test_password_reset_migration_upgrade_and_rollback_preserve_core_data():
             assert connection.scalar(text("SELECT count(*) FROM farms")) == 1
 
             command.upgrade(config, "head")
-            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f1a3b5c7d906"
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "b3d5f7a9c210"
             command.downgrade(config, "base")
     finally:
         if migration_engine is not None:

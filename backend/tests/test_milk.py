@@ -316,7 +316,67 @@ def test_manager_has_full_milk_management_and_vet_has_read_only(client, db_sessi
     db_session.commit()
     assert lactation(client, farm, manager, animal["id"]).status_code == 201
     assert client.get(f"/api/v1/farms/{farm.id}/milk/lactations", headers=authorization_header(vet)).status_code == 200
+    analytics = client.get(
+        f"/api/v1/farms/{farm.id}/milk/analytics/production",
+        params={"date_from": "2026-01-01", "date_to": "2026-01-31"},
+        headers=authorization_header(vet),
+    )
+    assert analytics.status_code == 200
     assert lactation(client, farm, vet, animal["id"], 2).status_code == 403
+
+
+def test_availability_reconciles_sales_and_blocks_oversold_correction(client, db_session):
+    owner, farm, animal = setup_farm(client, db_session)
+    lac = lactation(client, farm, owner, animal["id"]).json()
+    milk = session(client, farm, owner, animal["id"], lac["id"]).json()
+    sale = client.post(
+        f"/api/v1/farms/{farm.id}/finance/milk-sales",
+        headers=authorization_header(owner),
+        json={
+            "client_request_id": str(uuid.uuid4()),
+            "sale_date": "2026-01-02",
+            "quantity_liters": "8.000",
+            "price_per_liter": "100.0000",
+            "currency": "PKR",
+            "customer": "Local dairy",
+            "invoice_number": f"INV-{uuid.uuid4().hex[:8]}",
+        },
+    )
+    assert sale.status_code == 201
+    availability = client.get(
+        f"/api/v1/farms/{farm.id}/milk/analytics/availability",
+        headers=authorization_header(owner),
+    )
+    assert availability.status_code == 200
+    assert availability.json()["recorded_production_liters"] == "10.250"
+    assert availability.json()["sold_liters"] == "8.000"
+    assert availability.json()["available_liters"] == "2.250"
+    assert availability.json()["allocated_or_consumed_liters"] is None
+
+    correction = client.post(
+        f"/api/v1/farms/{farm.id}/milk/corrections",
+        headers=authorization_header(owner),
+        json={
+            "cattle_id": animal["id"],
+            "target_type": "SESSION",
+            "target_id": milk["id"],
+            "reason": "Confirmed lower reading",
+            "replacement_values": {"volume_liters": "5.000"},
+        },
+    )
+    assert correction.status_code == 409
+
+
+def test_availability_requires_finance_permission(client, db_session):
+    owner, farm, _ = setup_farm(client, db_session)
+    vet = create_user(db_session, email=f"milk-availability-vet-{uuid.uuid4().hex}@example.com")
+    db_session.add(FarmMember(farm_id=farm.id, user_id=vet.id, role=FarmRole.VETERINARIAN, status=MemberStatus.ACTIVE))
+    db_session.commit()
+    response = client.get(
+        f"/api/v1/farms/{farm.id}/milk/analytics/availability",
+        headers=authorization_header(vet),
+    )
+    assert response.status_code == 403
 
 
 def test_inactive_member_is_denied(client, db_session):

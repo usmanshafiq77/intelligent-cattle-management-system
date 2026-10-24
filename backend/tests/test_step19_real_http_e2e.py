@@ -74,7 +74,9 @@ def test_complete_step19_workflow_over_real_http(
     unique = uuid.uuid4().hex
     owner_email = f"step19-owner-{unique}@example.com"
     member_email = f"step19-member-{unique}@example.com"
+    veterinarian_email = f"step19-vet-{unique}@example.com"
     password = "Step19-Test-Only-Password!42"
+    new_password = "Step19-New-Test-Password!84"
 
     try:
         with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=10) as client:
@@ -299,6 +301,95 @@ def test_complete_step19_workflow_over_real_http(
             assert preflight.headers["access-control-allow-origin"] == (
                 "http://localhost:8081"
             )
+
+            veterinarian = _expect(
+                client.post(
+                    "/api/v1/auth/register",
+                    json={
+                        "full_name": "Step 19 Veterinarian",
+                        "email": veterinarian_email,
+                        "password": password,
+                    },
+                ),
+                201,
+            )
+            _expect(
+                client.post(
+                    "/api/v1/auth/verify-email",
+                    json={"token": memory_email_sender.messages[-1].token},
+                ),
+                200,
+            )
+            veterinarian_token = _expect(
+                client.post(
+                    "/api/v1/auth/login",
+                    json={"email": veterinarian_email, "password": password},
+                ),
+                200,
+            )["access_token"]
+            veterinarian_headers = {
+                "Authorization": f"Bearer {veterinarian_token}"
+            }
+            _expect(
+                client.post(
+                    f"/api/v1/farms/{farm_id}/invitations",
+                    headers=owner_headers,
+                    json={"email": veterinarian_email, "role": "VETERINARIAN"},
+                ),
+                201,
+            )
+            vet_membership = _expect(
+                client.post(
+                    "/api/v1/invitations/accept",
+                    headers=veterinarian_headers,
+                    json={
+                        "token": memory_email_sender.invitation_messages[-1].token
+                    },
+                ),
+                200,
+            )
+            assert vet_membership["role"] == "VETERINARIAN"
+            assert vet_membership["membership_status"] == "ACTIVE"
+            assert _expect(
+                client.get(
+                    f"/api/v1/farms/{farm_id}/staff/permissions/me",
+                    headers=veterinarian_headers,
+                ),
+                200,
+            )["predefined_role"] == "VETERINARIAN"
+
+            assert _expect(
+                client.post(
+                    "/api/v1/auth/forgot-password",
+                    json={"email": owner_email},
+                ),
+                202,
+            )["detail"] == (
+                "If the account is eligible, password reset instructions will be sent."
+            )
+            reset_token = memory_email_sender.password_reset_messages[-1].token
+            _expect(
+                client.post(
+                    "/api/v1/auth/reset-password",
+                    json={"token": reset_token, "new_password": new_password},
+                ),
+                200,
+            )
+            assert client.get(
+                "/api/v1/auth/me", headers=owner_headers
+            ).status_code == 401
+            assert client.post(
+                "/api/v1/auth/login",
+                json={"email": owner_email, "password": password},
+            ).status_code == 401
+            assert client.post(
+                "/api/v1/auth/login",
+                json={"email": owner_email, "password": new_password},
+            ).status_code == 200
+            assert client.post(
+                "/api/v1/auth/reset-password",
+                json={"token": reset_token, "new_password": password},
+            ).status_code == 400
     finally:
         server.should_exit = True
         thread.join(timeout=10)

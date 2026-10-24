@@ -23,6 +23,7 @@ test("frontend contract checkpoint matches the backend OpenAPI guard", () => {
 test("critical service routes match the reviewed FastAPI paths", () => {
   expect(apiRoutes.auth.login).toBe("/auth/login");
   expect(apiRoutes.auth.me).toBe("/auth/me");
+  expect(apiRoutes.auth.avatar).toBe("/auth/me/avatar");
   expect(apiRoutes.auth.forgotPassword).toBe("/auth/forgot-password");
   expect(apiRoutes.auth.resetPassword).toBe("/auth/reset-password");
   expect(apiRoutes.staff.myPermissions("farm-id")).toBe("/farms/farm-id/staff/permissions/me");

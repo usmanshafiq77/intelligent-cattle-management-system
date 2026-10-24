@@ -11,9 +11,9 @@ function itemsFor(permissions) {
 }
 
 test.each([
-  ["FARM_OWNER", ["farm.manage", "staff.view", "cattle.view", "health.view", "milk.view"], ["farm", "staff", "cattle", "health", "milk"]],
-  ["WORKER", ["farm.view", "cattle.view", "health.view", "milk.view"], ["cattle", "health", "milk"]],
-  ["VETERINARIAN", ["farm.view", "cattle.view", "health.view", "milk.view"], ["cattle", "health", "milk"]],
+  ["FARM_OWNER", ["farm.view", "staff.view", "cattle.view", "health.view", "milk.view"], ["farm", "staff", "cattle", "health", "milk"]],
+  ["WORKER", ["farm.view", "cattle.view", "health.view", "milk.view"], ["farm", "cattle", "health", "milk"]],
+  ["VETERINARIAN", ["farm.view", "cattle.view", "health.view", "milk.view"], ["farm", "cattle", "health", "milk"]],
 ])("%s menu exposes only backend-granted modules", (_role, permissions, expected) => {
   expect(itemsFor(permissions).map((item) => item.key)).toEqual(expected);
 });
@@ -26,8 +26,8 @@ test("missing and unknown permissions default to denied", () => {
 
 test("system administrator navigation is based only on verified auth/me state", () => {
   const items = platformNavigationItems({ is_system_admin: true });
-  expect(items.map((item) => item.key)).toEqual(["marketplace-moderation", "breed-catalog"]);
-  expect(items[0]).toEqual(expect.objectContaining({ href: "/marketplace/moderation", comingSoon: false }));
+  expect(items.map((item) => item.key)).toEqual(["platform-backups", "marketplace-moderation", "breed-catalog"]);
+  expect(items[0]).toEqual(expect.objectContaining({ href: "/admin/backups", comingSoon: false }));
   expect(platformNavigationItems({ is_system_admin: false })).toEqual([]);
   expect(platformNavigationItems(null)).toEqual([]);
 });
@@ -54,8 +54,8 @@ test.each([
     </ThemeProvider>,
   );
   expect(screen.getByTestId(testID)).toBeTruthy();
-  fireEvent.press(screen.getByLabelText("Health, coming soon"));
-  expect(onNavigate).toHaveBeenCalledWith("/farm/health");
+  fireEvent.press(screen.getByLabelText("Health"));
+  expect(onNavigate).toHaveBeenCalledWith("/health");
   fireEvent.press(screen.getByLabelText("Profile"));
   expect(onNavigate).toHaveBeenCalledWith("/profile");
 });
