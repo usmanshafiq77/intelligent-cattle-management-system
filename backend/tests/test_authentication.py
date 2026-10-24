@@ -28,7 +28,9 @@ def test_successful_registration_and_duplicate(
     response = client.post("/api/v1/auth/register", json=REGISTER_PAYLOAD)
     assert response.status_code == 201
     assert response.json()["email"] == "new.user@example.com"
+    assert response.json()["status"] == "PENDING"
     assert response.json()["is_email_verified"] is False
+    assert response.json()["verification_delivery_status"] == "SENT"
     assert len(memory_email_sender.messages) == 1
 
     duplicate = client.post(
@@ -37,6 +39,34 @@ def test_successful_registration_and_duplicate(
     )
     assert duplicate.status_code == 409
     assert db_session.scalar(select(func.count(User.id))) == 1
+
+
+def test_registration_reports_verification_delivery_failure_and_keeps_account(
+    client,
+    db_session,
+    memory_email_sender,
+    monkeypatch,
+):
+    def fail_delivery(**kwargs):
+        raise RuntimeError("simulated delivery outage")
+
+    monkeypatch.setattr(
+        memory_email_sender,
+        "send_verification_email",
+        fail_delivery,
+    )
+    response = client.post(
+        "/api/v1/auth/register",
+        json={**REGISTER_PAYLOAD, "email": "delivery-failed@example.com"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["verification_delivery_status"] == "FAILED"
+    user = db_session.scalar(
+        select(User).where(User.email == "delivery-failed@example.com")
+    )
+    assert user is not None
+    assert user.email_verified_at is None
 
 
 def test_successful_login_and_invalid_credentials(client, db_session):
@@ -67,6 +97,58 @@ def test_successful_login_and_invalid_credentials(client, db_session):
     assert wrong_password.status_code == 401
     assert missing_account.status_code == 401
     assert wrong_password.json() == missing_account.json()
+
+
+def test_unverified_user_cannot_login_until_verification(
+    client,
+    db_session,
+    memory_email_sender,
+):
+    registered = client.post(
+        "/api/v1/auth/register",
+        json={**REGISTER_PAYLOAD, "email": "login-gate@example.com"},
+    )
+    assert registered.status_code == 201
+
+    credentials = {
+        "email": "login-gate@example.com",
+        "password": REGISTER_PAYLOAD["password"],
+    }
+    denied = client.post("/api/v1/auth/login", json=credentials)
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "Email verification required"
+
+    verified = client.post(
+        "/api/v1/auth/verify-email",
+        json={"token": memory_email_sender.messages[-1].token},
+    )
+    assert verified.status_code == 200
+    login = client.post("/api/v1/auth/login", json=credentials)
+    assert login.status_code == 200
+
+
+def test_unverified_user_with_previously_issued_token_is_denied(
+    client,
+    db_session,
+):
+    user = create_user(
+        db_session,
+        email="legacy-unverified@example.com",
+        verified=False,
+    )
+    headers = authorization_header(user)
+
+    profile = client.get("/api/v1/auth/me", headers=headers)
+    farm_creation = client.post(
+        "/api/v1/farms",
+        headers=headers,
+        json={"name": "Must Not Exist"},
+    )
+
+    assert profile.status_code == 403
+    assert profile.json()["detail"] == "Email verification required"
+    assert farm_creation.status_code == 403
+    assert db_session.scalar(select(func.count(User.id))) == 1
 
 
 def test_missing_invalid_and_expired_jwt(client, db_session):
@@ -140,6 +222,7 @@ def test_email_verification_is_single_use(
         select(User).where(User.email == "verify@example.com")
     )
     assert user.email_verified_at is not None
+    assert user.status == UserStatus.ACTIVE
 
     replay = client.post(
         "/api/v1/auth/verify-email",

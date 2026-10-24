@@ -8,4 +8,6 @@ export const authApi = Object.freeze({
   getCurrentUser: (options) => apiClient.get(apiRoutes.auth.me, options),
   verifyEmail: (token, options) => apiClient.post(apiRoutes.auth.verifyEmail, { ...options, auth: false, json: { token } }),
   resendVerification: (email, options) => apiClient.post(apiRoutes.auth.resendVerification, { ...options, auth: false, json: { email } }),
+  forgotPassword: (email, options) => apiClient.post(apiRoutes.auth.forgotPassword, { ...options, auth: false, json: { email } }),
+  resetPassword: (token, newPassword, options) => apiClient.post(apiRoutes.auth.resetPassword, { ...options, auth: false, json: { token, new_password: newPassword } }),
 });

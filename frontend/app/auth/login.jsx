@@ -10,6 +10,9 @@ export default function LoginRoute() {
     <LoginScreen
       onBack={goBack}
       onCreateAccount={() => router.replace(ROUTES.signup)}
+      onVerifyEmail={() => router.push(ROUTES.verifyEmail)}
+      onForgotPassword={() => router.push(ROUTES.forgotPassword)}
+      onAuthenticated={() => router.replace(ROUTES.dashboard)}
     />
   );
 }

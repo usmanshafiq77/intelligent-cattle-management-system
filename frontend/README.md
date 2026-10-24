@@ -3,7 +3,8 @@
 React Native mobile client for the Intelligent Cattle Management System. The
 Expo Router, JavaScript-only foundation now includes the shared design system,
 FastAPI integration layer, production entry experience, and real login and
-account-registration forms.
+account-registration forms, a real farm dashboard, and farm-scoped cattle
+management.
 
 ## Requirements
 
@@ -75,8 +76,21 @@ configured through Expo Splash Screen and remain visible only while the saved
 theme preference is restored; no artificial startup delay is used.
 
 - `Get Started` opens account registration backed by `/api/v1/auth/register`.
-- `Log In` authenticates through `/api/v1/auth/login` and keeps the returned
-  bearer token in memory only until the Step 19.6 session lifecycle is added.
+- `Log In` authenticates through `/api/v1/auth/login`, stores the token in
+  SecureStore on Android/iOS (memory-only on web), and verifies `/api/v1/auth/me`.
+- `/dashboard` is the authenticated, role-aware application shell. It loads
+  active farms and selected-farm permissions from the backend before exposing
+  farm-scoped navigation and computes herd KPIs only from a completely fetched
+  cattle dataset. Oversized partial datasets are labeled explicitly.
+- `/cattle` provides the selected farm's real cattle directory, complete-data
+  search/filter/sort, pagination, refresh, and profile navigation.
+- `/cattle/register`, `/cattle/[id]`, and `/cattle/[id]/edit` provide
+  permission-gated registration, details, lifecycle transitions, and PATCH
+  editing using the FastAPI cattle contract.
+- `/session` remains compatible and redirects authenticated users to the
+  dashboard.
+- `/profile` displays only server-verified account data and links unverified
+  users to the supported email-verification flow.
 - Unknown links show a dedicated not-found screen.
 - `/dev/design-system` preserves the Step 19.2 showcase in development builds
   and renders unavailable content in production.
@@ -85,6 +99,22 @@ See [`docs/STEP_19_4_HANDOFF.md`](docs/STEP_19_4_HANDOFF.md) for splash behavior
 branding assets, navigation, tests, and the Step 19.5 handoff.
 See [`docs/STEP_19_5_HANDOFF.md`](docs/STEP_19_5_HANDOFF.md) for the implemented
 authentication contracts, security boundary, and Step 19.6 handoff.
+See [`docs/STEP_19_6_HANDOFF.md`](docs/STEP_19_6_HANDOFF.md) for session
+restoration, expiry handling, logout semantics, and protected navigation.
+See [`docs/STEP_19_7_HANDOFF.md`](docs/STEP_19_7_HANDOFF.md) for profile,
+account-status, and email-verification behavior.
+See [`docs/STEP_19_8_HANDOFF.md`](docs/STEP_19_8_HANDOFF.md) for farm context,
+effective-permission guards, role-aware menus, and responsive navigation.
+See [`docs/STEP_19_9_HANDOFF.md`](docs/STEP_19_9_HANDOFF.md) for real farm
+creation, onboarding, selection, and read-only details.
+See [`docs/STEP_19_10_HANDOFF.md`](docs/STEP_19_10_HANDOFF.md) for staff,
+invitations, and invitation-acceptance workflows.
+See [`docs/STEP_19_11_HANDOFF.md`](docs/STEP_19_11_HANDOFF.md) for the dashboard,
+cattle contracts, concurrency controls, tests, and production validation.
+See [`docs/STEP_19_12_HANDOFF.md`](docs/STEP_19_12_HANDOFF.md) for the final local
+integration, security, isolated real-HTTP, build, and runtime evidence. Use
+[`docs/STEP_19_12_MANUAL_GUI_CHECKLIST.md`](docs/STEP_19_12_MANUAL_GUI_CHECKLIST.md)
+for safe browser/device acceptance without risking `icms_db`.
 
 ## Run
 
@@ -102,7 +132,7 @@ npm.cmd run bundle:android
 ## Architecture
 
 ```text
-app/                    Welcome, authentication, dev-only, and fallback routes
+app/                    Public, account, dashboard, farm, cattle, dev, and fallback routes
 assets/branding/        Editable ICMS brand source
 src/api/                FastAPI client, auth transport, routes, and domain services
 src/components/brand/   Original in-app mark and farm intelligence illustration
@@ -121,15 +151,20 @@ health, and milk. Future breeding, feed, finance, reports, and marketplace
 features should follow the same feature-local structure.
 
 The root screen is the public welcome experience. Login and registration are
-real backend integrations; authenticated session restoration and protected
-application navigation intentionally remain Step 19.6 work.
+real backend integrations. Authenticated users enter `/dashboard`; the farm
+provider validates `/farms`, requires explicit selection when multiple farms
+exist, and loads `/farms/{farm_id}/staff/permissions/me` before farm content is
+rendered. Cattle screens capture the active farm for each request, abort stale
+work on context changes, reject cross-farm responses, and use backend-confirmed
+permissions. Client guards improve navigation UX, while FastAPI remains the
+authoritative enforcement layer.
 
 ## Design system
 
 Three persisted themes are available: Emerald (default), Midnight, and Indigo.
 `ThemeProvider` restores the selected theme from AsyncStorage, validates stored
 values, and rolls back an optimistic change if persistence fails. Application
-code should consume `useTheme()` rather than importing theme colors directly.
+code should consume `useAppTheme()` rather than importing theme colors directly.
 
 The shared primitives include buttons, inputs, cards, statistic cards, status
 badges, skeletons, inline feedback, full feedback states, confirmation dialogs,
@@ -157,7 +192,7 @@ The web export is emitted to `dist/web` and the Android bundle check to
 ## Dependency notes
 
 Use `npm.cmd run doctor` and `npm.cmd run check:dependencies` before upgrading
-Expo packages. Do not use `npm audit fix --force`: at the Step 19.5 checkpoint,
+Expo packages. Do not use `npm audit fix --force`: at the Step 19.12 checkpoint,
 the production-tree audit reports 61 findings (16 moderate, 45 high; no
 critical findings) through Expo CLI, Router, Metro, React Native, and their build tooling. npm's
 suggested forced resolutions cross supported Expo versions. Expo Doctor is the

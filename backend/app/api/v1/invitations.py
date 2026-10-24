@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -26,7 +26,6 @@ from app.services.invitations import (
     InvitationAcceptanceError,
     MembershipAlreadyExistsError,
     accept_invitation,
-    expire_stale_farm_invitations,
     expire_stale_pending_invitations,
     generate_invitation_token,
 )
@@ -50,7 +49,7 @@ def _send_invitation_email(
     invitation: Invitation,
     raw_token: str,
     farm_name: str,
-) -> None:
+) -> bool:
     try:
         sender.send_invitation_email(
             recipient=invitation.email,
@@ -58,11 +57,13 @@ def _send_invitation_email(
             expires_at=invitation.expires_at,
             farm_name=farm_name,
         )
+        return True
     except Exception:
-        logger.error(
+        logger.exception(
             "Invitation delivery failed for invitation %s",
             invitation.id,
         )
+        return False
 
 
 def _response_token(raw_token: str) -> str | None:
@@ -71,21 +72,39 @@ def _response_token(raw_token: str) -> str | None:
 
 
 def _invitation_response(
-    invitation: Invitation, *, raw_token: str | None = None
+    invitation: Invitation,
+    *,
+    raw_token: str | None = None,
+    effective_status: InvitationStatus | None = None,
+    delivery_status: str | None = None,
 ) -> InvitationResponse:
     return InvitationResponse(
         id=invitation.id,
         farm_id=invitation.farm_id,
         email=invitation.email,
         role=invitation.role,
-        status=invitation.status,
+        status=effective_status or invitation.status,
         expires_at=invitation.expires_at,
         created_at=invitation.created_at,
         accepted_at=invitation.accepted_at,
         invitation_token=(
             _response_token(raw_token) if raw_token is not None else None
         ),
+        delivery_status=delivery_status,
     )
+
+
+def _effective_invitation_status(
+    invitation: Invitation,
+    *,
+    now: datetime,
+) -> InvitationStatus:
+    if (
+        invitation.status == InvitationStatus.PENDING
+        and invitation.expires_at <= now
+    ):
+        return InvitationStatus.EXPIRED
+    return invitation.status
 
 
 def _farm_invitation_or_404(
@@ -208,7 +227,7 @@ def create_invitation(
             detail="Could not create invitation",
         ) from None
 
-    _send_invitation_email(
+    delivered = _send_invitation_email(
         email_sender,
         invitation=invitation,
         raw_token=raw_token,
@@ -218,6 +237,7 @@ def create_invitation(
     return _invitation_response(
         invitation,
         raw_token=raw_token,
+        delivery_status="SENT" if delivered else "FAILED",
     )
 
 
@@ -236,19 +256,43 @@ def list_invitations(
     owner_access: FarmAccess = Depends(require_farm_owner),
     db: Session = Depends(get_db),
 ):
-    expire_stale_farm_invitations(
-        db, farm_id=farm_id, now=datetime.now(timezone.utc)
-    )
-    db.commit()
+    now = datetime.now(timezone.utc)
     statement = select(Invitation).where(Invitation.farm_id == farm_id)
     if invitation_status is not None:
-        statement = statement.where(Invitation.status == invitation_status)
+        if invitation_status == InvitationStatus.PENDING:
+            statement = statement.where(
+                Invitation.status == InvitationStatus.PENDING,
+                Invitation.expires_at > now,
+            )
+        elif invitation_status == InvitationStatus.EXPIRED:
+            statement = statement.where(
+                or_(
+                    Invitation.status == InvitationStatus.EXPIRED,
+                    and_(
+                        Invitation.status == InvitationStatus.PENDING,
+                        Invitation.expires_at <= now,
+                    ),
+                )
+            )
+        else:
+            statement = statement.where(
+                Invitation.status == invitation_status
+            )
     invitations = db.scalars(
         statement.order_by(Invitation.created_at.desc(), Invitation.id)
         .limit(limit)
         .offset(offset)
     )
-    return [_invitation_response(invitation) for invitation in invitations]
+    return [
+        _invitation_response(
+            invitation,
+            effective_status=_effective_invitation_status(
+                invitation,
+                now=now,
+            ),
+        )
+        for invitation in invitations
+    ]
 
 
 @router.get(
@@ -265,13 +309,14 @@ def get_invitation(
     invitation = _farm_invitation_or_404(
         db, farm_id=farm_id, invitation_id=invitation_id
     )
-    if (
-        invitation.status == InvitationStatus.PENDING
-        and invitation.expires_at <= datetime.now(timezone.utc)
-    ):
-        invitation.status = InvitationStatus.EXPIRED
-        db.commit()
-    return _invitation_response(invitation)
+    now = datetime.now(timezone.utc)
+    return _invitation_response(
+        invitation,
+        effective_status=_effective_invitation_status(
+            invitation,
+            now=now,
+        ),
+    )
 
 
 @router.post(
@@ -380,13 +425,17 @@ def reissue_invitation(
             detail="Invitation conflicts with current farm state",
         ) from None
 
-    _send_invitation_email(
+    delivered = _send_invitation_email(
         email_sender,
         invitation=replacement,
         raw_token=raw_token,
         farm_name=owner_access.farm.name,
     )
-    return _invitation_response(replacement, raw_token=raw_token)
+    return _invitation_response(
+        replacement,
+        raw_token=raw_token,
+        delivery_status="SENT" if delivered else "FAILED",
+    )
 
 
 @router.post(

@@ -38,7 +38,16 @@
           }
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow ICMS to select cattle photos for marketplace listings.",
+          "cameraPermission": "Allow ICMS to take cattle photos for marketplace listings.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing"
     ]
   }
 }

@@ -364,6 +364,85 @@ def test_overdue_vaccination_reminder_is_deterministic(client, db_session):
     assert response.json()[0]["overdue"] is True
 
 
+def test_follow_up_reminders_include_horizon_boundary_and_exclude_outside(
+    client,
+    db_session,
+):
+    owner, farm, animal = setup_farm(client, db_session)
+    occurred = datetime.now(timezone.utc)
+    as_of = occurred + timedelta(days=2)
+
+    for suffix, due in (
+        ("past", occurred + timedelta(days=1)),
+        ("tomorrow", as_of + timedelta(days=1)),
+        ("boundary", as_of + timedelta(days=2)),
+        ("outside", as_of + timedelta(days=2, seconds=1)),
+    ):
+        response = create_encounter(
+            client,
+            farm,
+            owner,
+            animal["id"],
+            occurred_at=occurred.isoformat(),
+            symptoms=suffix,
+            follow_up_due_at=due.isoformat(),
+        )
+        assert response.status_code == 201
+
+    reminders = client.get(
+        f"/api/v1/farms/{farm.id}/health/reminders",
+        headers=authorization_header(owner),
+        params={"as_of": as_of.isoformat(), "horizon_days": 2},
+    )
+    assert reminders.status_code == 200
+    followups = [
+        item
+        for item in reminders.json()
+        if item["kind"].startswith("FOLLOW_UP_")
+    ]
+    assert [item["kind"] for item in followups] == [
+        "FOLLOW_UP_OVERDUE",
+        "FOLLOW_UP_UPCOMING",
+        "FOLLOW_UP_UPCOMING",
+    ]
+    assert [item["overdue"] for item in followups] == [True, False, False]
+
+
+def test_terminal_cattle_do_not_produce_actionable_health_reminders(
+    client,
+    db_session,
+):
+    owner, farm, animal = setup_farm(client, db_session)
+    occurred = datetime.now(timezone.utc)
+    due = occurred + timedelta(days=1)
+    encounter = create_encounter(
+        client,
+        farm,
+        owner,
+        animal["id"],
+        occurred_at=occurred.isoformat(),
+        follow_up_due_at=due.isoformat(),
+    )
+    assert encounter.status_code == 201
+    sold = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{animal['id']}/lifecycle",
+        headers=authorization_header(owner),
+        json={
+            "new_status": "SOLD",
+            "effective_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert sold.status_code == 200
+
+    reminders = client.get(
+        f"/api/v1/farms/{farm.id}/health/reminders",
+        headers=authorization_header(owner),
+        params={"as_of": datetime.now(timezone.utc).isoformat()},
+    )
+    assert reminders.status_code == 200
+    assert reminders.json() == []
+
+
 def test_treatment_medication_completion_and_audit_history(client, db_session):
     owner, farm, animal = setup_farm(client, db_session)
     treatment = client.post(

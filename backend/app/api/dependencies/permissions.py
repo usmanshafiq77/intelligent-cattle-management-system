@@ -41,9 +41,17 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.MILK_ANALYTICS_VIEW,
             Permission.MILK_BULK_CREATE,
             Permission.FEED_VIEW,
+            Permission.FEED_RECORD,
             Permission.FEED_MANAGE,
             Permission.BREEDING_VIEW,
             Permission.BREEDING_MANAGE,
+            Permission.FINANCE_VIEW,
+            Permission.FINANCE_MANAGE,
+            Permission.MARKETPLACE_VIEW,
+            Permission.MARKETPLACE_LISTING_MANAGE,
+            Permission.MARKETPLACE_INQUIRY_MANAGE,
+            Permission.MARKETPLACE_SALE_CONFIRM,
+            Permission.MARKETPLACE_REPORT_CREATE,
             Permission.REPORTS_VIEW,
             Permission.REPORTS_EXPORT,
         }
@@ -57,6 +65,12 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.MILK_RECORD,
             Permission.MILK_BULK_CREATE,
             Permission.FEED_VIEW,
+            Permission.FEED_RECORD,
+            Permission.BREEDING_VIEW,
+            Permission.BREEDING_HEAT_RECORD,
+            Permission.BREEDING_CALVING_RECORD,
+            Permission.MARKETPLACE_VIEW,
+            Permission.MARKETPLACE_REPORT_CREATE,
         }
     ),
     FarmRole.VETERINARIAN: frozenset(
@@ -75,6 +89,11 @@ PREDEFINED_ROLE_PERMISSIONS: dict[FarmRole, frozenset[Permission]] = {
             Permission.HEALTH_AUDIT_VIEW,
             Permission.MILK_VIEW,
             Permission.BREEDING_VIEW,
+            Permission.BREEDING_PREGNANCY_ASSESS,
+            Permission.BREEDING_REPORTS_VIEW,
+            Permission.FEED_NUTRITION_VIEW,
+            Permission.MARKETPLACE_VIEW,
+            Permission.MARKETPLACE_REPORT_CREATE,
         }
     ),
 }
@@ -99,6 +118,41 @@ MILK_MANAGE_IMPLIED_PERMISSIONS = frozenset(
         Permission.MILK_CORRECT,
         Permission.MILK_ANALYTICS_VIEW,
         Permission.MILK_BULK_CREATE,
+    }
+)
+
+FEED_MANAGE_IMPLIED_PERMISSIONS = frozenset(
+    {
+        Permission.FEED_RECORD,
+        Permission.FEED_INVENTORY_MANAGE,
+        Permission.FEED_SCHEDULE_MANAGE,
+        Permission.FEED_NUTRITION_VIEW,
+        Permission.FEED_NUTRITION_MANAGE,
+        Permission.FEED_COST_VIEW,
+        Permission.FEED_REPORTS_VIEW,
+    }
+)
+
+BREEDING_MANAGE_IMPLIED_PERMISSIONS = frozenset(
+    {
+        Permission.BREEDING_HEAT_RECORD,
+        Permission.BREEDING_EVENT_RECORD,
+        Permission.BREEDING_CALVING_RECORD,
+        Permission.BREEDING_PEDIGREE_MANAGE,
+        Permission.BREEDING_REPORTS_VIEW,
+    }
+)
+
+FINANCE_MANAGE_IMPLIED_PERMISSIONS = frozenset(
+    {
+        Permission.FINANCE_INCOME_MANAGE,
+        Permission.FINANCE_EXPENSE_MANAGE,
+        Permission.FINANCE_SALES_MANAGE,
+        Permission.FINANCE_PAYMENTS_MANAGE,
+        Permission.FINANCE_BUDGETS_MANAGE,
+        Permission.FINANCE_ASSETS_MANAGE,
+        Permission.FINANCE_REPORTS_VIEW,
+        Permission.FINANCE_AUDIT_VIEW,
     }
 )
 
@@ -138,6 +192,12 @@ def get_effective_permissions(
         permissions.update(HEALTH_MANAGE_IMPLIED_PERMISSIONS)
     if Permission.MILK_MANAGE in permissions:
         permissions.update(MILK_MANAGE_IMPLIED_PERMISSIONS)
+    if Permission.FEED_MANAGE in permissions:
+        permissions.update(FEED_MANAGE_IMPLIED_PERMISSIONS)
+    if Permission.BREEDING_MANAGE in permissions:
+        permissions.update(BREEDING_MANAGE_IMPLIED_PERMISSIONS)
+    if Permission.FINANCE_MANAGE in permissions:
+        permissions.update(FINANCE_MANAGE_IMPLIED_PERMISSIONS)
     return frozenset(permissions)
 
 
@@ -152,6 +212,21 @@ def require_farm_permission(
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Missing required permission: {permission.value}",
+            )
+        return access
+
+    return dependency
+
+
+def require_veterinarian_permission(permission: Permission) -> Callable[..., FarmAccess]:
+    """Require clinical permission and professional membership; owners cannot impersonate vets."""
+    permission_dependency = require_farm_permission(permission)
+
+    def dependency(access: FarmAccess = Depends(permission_dependency)) -> FarmAccess:
+        if access.membership.role != FarmRole.VETERINARIAN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This clinical action requires an active Veterinarian membership",
             )
         return access
 

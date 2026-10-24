@@ -47,7 +47,7 @@ test("reviewed response guards accept bearer login and registration responses", 
   expect(requireLoginResponse({ access_token: "token", token_type: "bearer" })).toEqual({ accessToken: "token", tokenType: "bearer" });
   expect(() => requireLoginResponse({ token: "wrong" })).toThrow(/contract/);
 
-  const registered = { id: "user-id", full_name: "Owner", email: "owner@example.com", status: "ACTIVE", is_email_verified: false };
+  const registered = { id: "user-id", full_name: "Owner", email: "owner@example.com", status: "ACTIVE", is_email_verified: false, is_system_admin: false, created_at: "2026-10-17T00:00:00Z" };
   expect(requireRegistrationResponse(registered)).toBe(registered);
   expect(() => requireRegistrationResponse({ email: "owner@example.com" })).toThrow(/contract/);
 });

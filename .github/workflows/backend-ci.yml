@@ -114,94 +114,11 @@ jobs:
       - name: Compile backend Python
         run: python -m compileall -q app tests alembic
 
-      - name: Verify imports, OpenAPI, and SQLAlchemy metadata
-        run: |
-          python - <<'PY'
-          import app.models  # noqa: F401
-
-          from app.db.base import Base
-          from app.main import app
-
-          specification = app.openapi()
-
-          methods = {
-              "get",
-              "post",
-              "put",
-              "patch",
-              "delete",
-          }
-
-          operations = sum(
-              1
-              for item in specification["paths"].values()
-              for method in item
-              if method in methods
-          )
-
-          api_paths = len(specification["paths"])
-          database_tables = len(Base.metadata.tables)
-
-          print(f"API paths: {api_paths}")
-          print(f"API operations: {operations}")
-          print(f"SQLAlchemy tables: {database_tables}")
-
-          assert api_paths == 63, (
-              f"Expected 63 API paths, found {api_paths}"
-          )
-
-          assert operations == 87, (
-              f"Expected 87 API operations, found {operations}"
-          )
-
-          assert database_tables == 26, (
-              f"Expected 26 tables, found {database_tables}"
-          )
-
-          print(
-              "Verified Step 18: "
-              "63 paths, 87 operations, and 26 tables"
-          )
-          PY
-
-      - name: Verify Alembic revision chain
-        run: |
-          python - <<'PY'
-          from alembic.config import Config
-          from alembic.script import ScriptDirectory
-
-          config = Config("alembic.ini")
-          script = ScriptDirectory.from_config(config)
-
-          revisions = [
-              revision.revision
-              for revision in reversed(
-                  list(script.walk_revisions())
-              )
-          ]
-
-          expected_revisions = [
-              "b9f8ee48d20d",
-              "c3a1f5e8d9b2",
-              "d4b7c9e2a105",
-              "e6f1a2b3c4d5",
-              "f7a2b3c4d5e6",
-              "a8b3c4d5e6f7",
-          ]
-
-          assert revisions == expected_revisions, (
-              f"Unexpected revision chain: {revisions}"
-          )
-
-          assert script.get_heads() == [
-              "a8b3c4d5e6f7"
-          ], "Unexpected Alembic head"
-
-          print(
-              "Verified linear Alembic chain "
-              "through a8b3c4d5e6f7"
-          )
-          PY
+      - name: Verify reviewed API, ORM, and Alembic contracts
+        run: >-
+          pytest -q
+          tests/test_openapi_contract.py
+          tests/test_architecture_contract.py
 
       - name: Run migration lifecycle tests
         run: >-
@@ -210,6 +127,8 @@ jobs:
           tests/test_cattle_migration.py
           tests/test_health_migration.py
           tests/test_milk_migration.py
+          tests/test_password_reset_migration.py
+          tests/test_feed_migration.py
 
       - name: Run milk concurrency tests
         run: pytest -q tests/test_milk_concurrency.py

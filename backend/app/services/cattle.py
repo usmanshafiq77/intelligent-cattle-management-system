@@ -10,6 +10,7 @@ from app.models.cattle import (
     AnimalSex,
     Breed,
     Cattle,
+    CattleLifecycleEvent,
     CattleStatus,
     Species,
 )
@@ -37,6 +38,15 @@ VALID_TRANSITIONS: dict[CattleStatus, frozenset[CattleStatus]] = {
     CattleStatus.TRANSFERRED: frozenset(),
     CattleStatus.ARCHIVED: frozenset(),
 }
+
+TERMINAL_CATTLE_STATUSES = frozenset(
+    {
+        CattleStatus.SOLD,
+        CattleStatus.DECEASED,
+        CattleStatus.TRANSFERRED,
+        CattleStatus.ARCHIVED,
+    }
+)
 
 
 def normalize_identity(value: str) -> str:
@@ -211,4 +221,58 @@ def validate_transition(
     if requested not in VALID_TRANSITIONS[current]:
         raise CattleValidationError(
             f"Invalid lifecycle transition: {current.value} to {requested.value}"
+        )
+
+
+def latest_lifecycle_event(
+    db: Session,
+    *,
+    farm_id: UUID,
+    cattle_id: UUID,
+) -> CattleLifecycleEvent | None:
+    """Return the effective state boundary for an already locked animal."""
+    return db.scalar(
+        select(CattleLifecycleEvent)
+        .where(
+            CattleLifecycleEvent.farm_id == farm_id,
+            CattleLifecycleEvent.cattle_id == cattle_id,
+        )
+        .order_by(
+            CattleLifecycleEvent.effective_at.desc(),
+            CattleLifecycleEvent.id.desc(),
+        )
+        .limit(1)
+    )
+
+
+def validate_operational_lifecycle_time(
+    *,
+    effective_at: datetime,
+    latest_event: CattleLifecycleEvent | None,
+) -> None:
+    if latest_event is not None and effective_at <= latest_event.effective_at:
+        raise CattleValidationError(
+            "Lifecycle transitions must occur after the latest lifecycle "
+            "event; historical corrections require a dedicated correction "
+            "workflow"
+        )
+
+
+def validate_weight_lifecycle_time(
+    *,
+    status: CattleStatus,
+    measured_at: datetime,
+    latest_event: CattleLifecycleEvent | None,
+) -> None:
+    if status not in TERMINAL_CATTLE_STATUSES:
+        return
+    if latest_event is None or latest_event.new_status != status:
+        raise CattleValidationError(
+            "Weight cannot be recorded because the terminal lifecycle "
+            "boundary is unavailable"
+        )
+    if measured_at > latest_event.effective_at:
+        raise CattleValidationError(
+            f"Weight measurement cannot occur after the animal became "
+            f"{status.value}"
         )

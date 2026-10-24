@@ -18,6 +18,26 @@ from app.db.base import Base
 
 pytestmark = pytest.mark.integration
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
+FEED_MIGRATION_PERMISSIONS = {
+    "feed.record",
+    "feed.inventory.manage",
+    "feed.schedule.manage",
+    "feed.nutrition.view",
+    "feed.nutrition.manage",
+    "feed.cost.view",
+    "feed.reports.view",
+}
+BREEDING_MIGRATION_PERMISSIONS = {
+    "breeding.heat.record", "breeding.event.record",
+    "breeding.pregnancy.assess", "breeding.calving.record",
+    "breeding.pedigree.manage", "breeding.reports.view",
+}
+FINANCE_MIGRATION_PERMISSIONS = {
+    "finance.income.manage", "finance.expense.manage", "finance.sales.manage",
+    "finance.payments.manage", "finance.budgets.manage", "finance.assets.manage",
+    "finance.reports.view", "finance.audit.view",
+}
+MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
 
 
 def test_milk_migration_lifecycle_metadata_seeds_and_constraints():
@@ -60,9 +80,13 @@ def test_milk_migration_lifecycle_metadata_seeds_and_constraints():
             connection.commit()
             command.upgrade(config, "a8b3c4d5e6f7")
             assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "a8b3c4d5e6f7"
-            assert set(connection.scalars(text("SELECT code FROM permissions"))) == set(PERMISSION_CODES)
+            assert set(connection.scalars(text("SELECT code FROM permissions"))) == (
+                set(PERMISSION_CODES) - FEED_MIGRATION_PERMISSIONS - BREEDING_MIGRATION_PERMISSIONS - FINANCE_MIGRATION_PERMISSIONS - MARKETPLACE_MIGRATION_PERMISSIONS
+            )
             assert connection.scalar(text("SELECT count(*) FROM cattle")) == 1
             assert {"milk_lactations", "milking_sessions", "milk_quality_measurements", "milk_record_corrections"} <= set(inspect(connection).get_table_names())
+            command.upgrade(config, "head")
+            assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "f1a3b5c7d906"
             assert compare_metadata(MigrationContext.configure(connection, opts={"compare_type": True}), Base.metadata) == []
             lactation_id = uuid.uuid4()
             connection.execute(text(

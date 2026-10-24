@@ -18,7 +18,12 @@ from app.db.session import get_db
 from app.models.cattle import CattleWeightRecord
 from app.models.user import User
 from app.schemas.cattle import WeightCreate, WeightResponse
-from app.services.cattle import CattleValidationError, validate_not_future
+from app.services.cattle import (
+    CattleValidationError,
+    latest_lifecycle_event,
+    validate_not_future,
+    validate_weight_lifecycle_time,
+)
 
 
 router = APIRouter(prefix=CATTLE_PREFIX)
@@ -39,7 +44,11 @@ def add_cattle_weight(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    animal = animal_or_404(db, farm_id=farm_id, cattle_id=cattle_id)
+    # Serialize with lifecycle transitions so a weight and terminal-state
+    # change cannot pass validation against different animal states.
+    animal = animal_or_404(
+        db, farm_id=farm_id, cattle_id=cattle_id, lock=True
+    )
     try:
         measured_at = validate_not_future(
             data.measured_at, field_name="measured_at"
@@ -48,6 +57,15 @@ def add_cattle_weight(
             raise CattleValidationError(
                 "Weight measurement cannot predate the date of birth"
             )
+        validate_weight_lifecycle_time(
+            status=animal.status,
+            measured_at=measured_at,
+            latest_event=latest_lifecycle_event(
+                db,
+                farm_id=farm_id,
+                cattle_id=cattle_id,
+            ),
+        )
     except CattleValidationError as error:
         raise validation_error(error) from None
     record = CattleWeightRecord(

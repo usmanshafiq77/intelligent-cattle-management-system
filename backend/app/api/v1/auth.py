@@ -1,3 +1,4 @@
+
 import logging
 from uuid import UUID
 
@@ -22,7 +23,10 @@ from app.models.user import User, UserStatus
 from app.schemas.user import (
     EmailVerificationRequest,
     EmailVerificationResendRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
     MessageResponse,
+    RegistrationResponse,
     TokenResponse,
     UserLogin,
     UserRegister,
@@ -33,6 +37,14 @@ from app.services.email_verification import (
     InvalidVerificationTokenError,
     issue_verification_token,
     verify_email_token,
+)
+
+# NEW: Password reset service imports
+from app.services.password_reset import (
+    InvalidPasswordResetTokenError,
+    hash_reset_token,
+    issue_password_reset_token,
+    reset_password_with_token,
 )
 
 
@@ -50,6 +62,8 @@ GENERIC_RESEND_RESPONSE = (
     "a verification email will be sent."
 )
 
+VERIFICATION_REQUIRED_DETAIL = "Email verification required"
+
 
 def _send_verification_email(
     sender: EmailSender,
@@ -57,23 +71,25 @@ def _send_verification_email(
     user: User,
     raw_token: str,
     expires_at,
-) -> None:
+) -> bool:
     try:
         sender.send_verification_email(
             recipient=user.email,
             token=raw_token,
             expires_at=expires_at,
         )
+        return True
     except Exception:
         logger.exception(
             "Email verification delivery failed for user %s",
             user.id,
         )
+        return False
 
 
 @router.post(
     "/register",
-    response_model=UserResponse,
+    response_model=RegistrationResponse,
     status_code=status.HTTP_201_CREATED,
 )
 def register_user(
@@ -105,6 +121,7 @@ def register_user(
     existing_user = db.scalar(
         select(User).where(func.lower(User.email) == email)
     )
+
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -116,12 +133,13 @@ def register_user(
         email=email,
         password_hash=hash_password(data.password),
         is_system_admin=False,
-        status=UserStatus.ACTIVE,
+        status=UserStatus.PENDING,
     )
 
     try:
         db.add(new_user)
         db.flush()
+
         raw_token, verification_token = issue_verification_token(
             db,
             user=new_user,
@@ -129,13 +147,16 @@ def register_user(
                 settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES
             ),
         )
+
         db.commit()
+
     except IntegrityError:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Email already registered",
         ) from None
+
     except SQLAlchemyError:
         db.rollback()
         logger.exception("User registration failed")
@@ -145,13 +166,25 @@ def register_user(
         ) from None
 
     db.refresh(new_user)
-    _send_verification_email(
+
+    delivered = _send_verification_email(
         email_sender,
         user=new_user,
         raw_token=raw_token,
         expires_at=verification_token.expires_at,
     )
-    return new_user
+
+    response = UserResponse.model_validate(
+        new_user,
+        from_attributes=True,
+    )
+
+    return RegistrationResponse(
+        **response.model_dump(),
+        verification_delivery_status=(
+            "SENT" if delivered else "FAILED"
+        ),
+    )
 
 
 @router.post(
@@ -179,6 +212,7 @@ def login_user(
     user = db.scalar(
         select(User).where(func.lower(User.email) == email)
     )
+
     password_matches = verify_password_safely(
         data.password,
         user.password_hash if user is not None else None,
@@ -191,6 +225,12 @@ def login_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    if user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=VERIFICATION_REQUIRED_DETAIL,
+        )
+
     if user.status != UserStatus.ACTIVE:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -198,7 +238,10 @@ def login_user(
         )
 
     return TokenResponse(
-        access_token=create_access_token(user.id),
+        access_token=create_access_token(
+            user.id,
+            token_version=user.token_version,
+        ),
         token_type="bearer",
     )
 
@@ -220,15 +263,34 @@ def get_current_user(
 
     try:
         payload = decode_access_token(credentials.credentials)
+
         if payload.get("type") != "access":
             raise ValueError("Invalid token type")
+
         user_id = UUID(payload["sub"])
+
     except (jwt.InvalidTokenError, ValueError, KeyError, TypeError):
         raise authentication_error from None
 
     user = db.get(User, user_id)
+
     if user is None:
         raise authentication_error
+
+    # Reject JWTs issued before a password reset.
+    token_version = payload.get("token_version", 0)
+
+    if (
+        type(token_version) is not int
+        or token_version != user.token_version
+    ):
+        raise authentication_error
+
+    if user.email_verified_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=VERIFICATION_REQUIRED_DETAIL,
+        )
 
     if user.status != UserStatus.ACTIVE:
         raise HTTPException(
@@ -258,14 +320,19 @@ def verify_email(
     db: Session = Depends(get_db),
 ):
     try:
-        verify_email_token(db, raw_token=data.token)
+        verify_email_token(
+            db,
+            raw_token=data.token,
+        )
         db.commit()
+
     except InvalidVerificationTokenError:
         db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Verification token is invalid or expired",
         ) from None
+
     except SQLAlchemyError:
         db.rollback()
         logger.exception("Email verification failed")
@@ -274,7 +341,9 @@ def verify_email(
             detail="Could not verify email",
         ) from None
 
-    return MessageResponse(detail="Email verified successfully")
+    return MessageResponse(
+        detail="Email verified successfully"
+    )
 
 
 @router.post(
@@ -306,8 +375,11 @@ def resend_email_verification(
     user = db.scalar(
         select(User).where(func.lower(User.email) == email)
     )
+
     if user is None or user.email_verified_at is not None:
-        return MessageResponse(detail=GENERIC_RESEND_RESPONSE)
+        return MessageResponse(
+            detail=GENERIC_RESEND_RESPONSE
+        )
 
     try:
         raw_token, verification_token = issue_verification_token(
@@ -317,14 +389,21 @@ def resend_email_verification(
                 settings.EMAIL_VERIFICATION_TOKEN_EXPIRE_MINUTES
             ),
         )
+
         db.commit()
+
     except IntegrityError:
         db.rollback()
-        return MessageResponse(detail=GENERIC_RESEND_RESPONSE)
+        return MessageResponse(
+            detail=GENERIC_RESEND_RESPONSE
+        )
+
     except SQLAlchemyError:
         db.rollback()
         logger.exception("Email verification resend failed")
-        return MessageResponse(detail=GENERIC_RESEND_RESPONSE)
+        return MessageResponse(
+            detail=GENERIC_RESEND_RESPONSE
+        )
 
     _send_verification_email(
         email_sender,
@@ -332,4 +411,143 @@ def resend_email_verification(
         raw_token=raw_token,
         expires_at=verification_token.expires_at,
     )
-    return MessageResponse(detail=GENERIC_RESEND_RESPONSE)
+
+    return MessageResponse(
+        detail=GENERIC_RESEND_RESPONSE
+    )
+
+
+
+# =====================================================
+# FORGOT PASSWORD
+# =====================================================
+
+GENERIC_PASSWORD_RESET_RESPONSE = (
+    "If the account is eligible, password reset "
+    "instructions will be sent."
+)
+
+
+@router.post(
+    "/forgot-password",
+    response_model=MessageResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def forgot_password(
+    data: ForgotPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    email_sender: EmailSender = Depends(get_email_sender),
+):
+    settings = get_settings()
+    email = normalize_email(str(data.email))
+
+    enforce_rate_limit(
+        request,
+        scope="forgot-password",
+        identity=email,
+        limit=settings.FORGOT_PASSWORD_RATE_LIMIT_REQUESTS,
+        window_seconds=settings.FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
+        enabled=settings.AUTH_RATE_LIMIT_ENABLED,
+        max_keys=settings.RATE_LIMIT_MAX_KEYS,
+    )
+
+    user = db.scalar(
+        select(User).where(func.lower(User.email) == email)
+    )
+
+    # Do not reveal whether an email belongs to an account.
+    if (
+        user is None
+        or user.status != UserStatus.ACTIVE
+        or user.email_verified_at is None
+    ):
+        return MessageResponse(
+            detail=GENERIC_PASSWORD_RESET_RESPONSE
+        )
+
+    try:
+        raw_token, reset_token = issue_password_reset_token(
+            db,
+            user=user,
+            lifetime_minutes=settings.PASSWORD_RESET_TOKEN_EXPIRE_MINUTES,
+        )
+        db.commit()
+
+    except Exception:
+        db.rollback()
+        logger.exception("Password reset request failed")
+        return MessageResponse(
+            detail=GENERIC_PASSWORD_RESET_RESPONSE
+        )
+
+    try:
+        email_sender.send_password_reset_email(
+            recipient=user.email,
+            token=raw_token,
+            expires_at=reset_token.expires_at,
+        )
+    except Exception:
+        # Avoid revealing delivery or account status.
+        logger.exception(
+            "Password reset delivery failed for user %s",
+            user.id,
+        )
+
+    return MessageResponse(
+        detail=GENERIC_PASSWORD_RESET_RESPONSE
+    )
+
+
+# =====================================================
+# RESET PASSWORD
+# =====================================================
+
+@router.post(
+    "/reset-password",
+    response_model=MessageResponse,
+)
+def reset_password(
+    data: ResetPasswordRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    settings = get_settings()
+
+    # Rate limit repeated reset attempts.
+    enforce_rate_limit(
+        request,
+        scope="reset-password",
+        identity=hash_reset_token(data.token),
+        limit=settings.RESET_PASSWORD_RATE_LIMIT_REQUESTS,
+        window_seconds=settings.RESET_PASSWORD_RATE_LIMIT_WINDOW_SECONDS,
+        enabled=settings.AUTH_RATE_LIMIT_ENABLED,
+        max_keys=settings.RATE_LIMIT_MAX_KEYS,
+    )
+
+    try:
+        reset_password_with_token(
+            db,
+            raw_token=data.token,
+            new_password=data.new_password,
+        )
+        db.commit()
+
+    except InvalidPasswordResetTokenError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password reset link is invalid or expired",
+        ) from None
+
+    except Exception:
+        db.rollback()
+        logger.exception("Password reset failed")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not reset password",
+        ) from None
+
+    return MessageResponse(
+        detail="Password reset successfully. Please log in again."
+    )

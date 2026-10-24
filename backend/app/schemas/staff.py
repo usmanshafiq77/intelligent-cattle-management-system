@@ -21,14 +21,20 @@ class StaffResponse(BaseModel):
 
 
 class StaffRoleUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     role: Literal["FARM_MANAGER", "WORKER", "VETERINARIAN"]
 
 
 class StaffStatusUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     status: Literal["ACTIVE", "INACTIVE"]
 
 
 class CustomRoleAssignments(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     role_ids: list[UUID] = Field(min_length=1, max_length=50)
 
 

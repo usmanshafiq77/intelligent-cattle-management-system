@@ -6,6 +6,7 @@ export const cattleApi = Object.freeze({
   getBreed: (breedId, options) => apiClient.get(apiRoutes.breeds.detail(breedId), options),
   createBreed: (payload, options) => apiClient.post(apiRoutes.breeds.collection, { ...options, json: payload }),
   list: (farmId, query, options) => apiClient.get(apiRoutes.cattle.collection(farmId), { ...options, query }),
+  summary: (farmId, query, options) => apiClient.get(apiRoutes.cattle.summary(farmId), { ...options, query }),
   create: (farmId, payload, options) => apiClient.post(apiRoutes.cattle.collection(farmId), { ...options, json: payload }),
   get: (farmId, cattleId, options) => apiClient.get(apiRoutes.cattle.detail(farmId, cattleId), options),
   update: (farmId, cattleId, payload, options) => apiClient.patch(apiRoutes.cattle.detail(farmId, cattleId), { ...options, json: payload }),

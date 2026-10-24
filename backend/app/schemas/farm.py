@@ -22,7 +22,8 @@ class FarmCreate(BaseModel):
     )
 
     model_config = ConfigDict(
-        str_strip_whitespace=True
+        str_strip_whitespace=True,
+        extra="forbid",
     )
 
 

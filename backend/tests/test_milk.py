@@ -124,6 +124,22 @@ def test_session_input_validation(client, db_session, field, value):
     assert session(client, farm, owner, animal["id"], lac["id"], **{field: value}).status_code == 422
 
 
+def test_future_recorded_time_is_rejected(client, db_session):
+    owner, farm, animal = setup_farm(client, db_session)
+    lac = lactation(client, farm, owner, animal["id"]).json()
+    recorded_time = datetime.now(timezone.utc) + timedelta(hours=1)
+    response = session(
+        client,
+        farm,
+        owner,
+        animal["id"],
+        lac["id"],
+        milking_date=recorded_time.date().isoformat(),
+        recorded_time=recorded_time.isoformat(),
+    )
+    assert response.status_code == 422
+
+
 def test_zero_volume_is_explicitly_accepted_and_duplicate_rejected(client, db_session):
     owner, farm, animal = setup_farm(client, db_session)
     lac = lactation(client, farm, owner, animal["id"]).json()

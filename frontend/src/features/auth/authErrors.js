@@ -20,7 +20,13 @@ export function authFieldErrors(error) {
 
 export function authErrorMessage(error, action) {
   if (error?.isCancelled) return null;
+  if (error?.code === "INVALID_API_CONFIGURATION") {
+    return "The ICMS API address is not configured correctly. Check frontend/.env and restart Expo.";
+  }
   if (action === "login" && error?.status === 401) return "The email or password is incorrect.";
+  if (action === "login" && error?.status === 403 && /email verification required/i.test(error?.serverMessage || "")) {
+    return "Verify your email before signing in. You can request a new verification email below.";
+  }
   if (action === "login" && error?.status === 403) return "This account is currently inactive. Contact an administrator for help.";
   if (action === "signup" && error?.status === 409) return "An account with this email address already exists.";
   if (error?.status === 422) return "Review the highlighted information and try again.";

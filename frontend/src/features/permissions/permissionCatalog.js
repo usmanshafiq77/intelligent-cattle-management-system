@@ -1,0 +1,68 @@
+export const PERMISSIONS = Object.freeze({
+  FARM_VIEW: "farm.view",
+  FARM_MANAGE: "farm.manage",
+  STAFF_VIEW: "staff.view",
+  STAFF_MANAGE: "staff.manage",
+  CATTLE_VIEW: "cattle.view",
+  CATTLE_CREATE: "cattle.create",
+  CATTLE_UPDATE: "cattle.update",
+  CATTLE_DELETE: "cattle.delete",
+  HEALTH_VIEW: "health.view",
+  MILK_VIEW: "milk.view",
+  FEED_VIEW: "feed.view",
+  FEED_MANAGE: "feed.manage",
+  FEED_RECORD: "feed.record",
+  FEED_INVENTORY_MANAGE: "feed.inventory.manage",
+  FEED_SCHEDULE_MANAGE: "feed.schedule.manage",
+  FEED_NUTRITION_VIEW: "feed.nutrition.view",
+  FEED_NUTRITION_MANAGE: "feed.nutrition.manage",
+  FEED_COST_VIEW: "feed.cost.view",
+  FEED_REPORTS_VIEW: "feed.reports.view",
+  BREEDING_VIEW: "breeding.view",
+  BREEDING_MANAGE: "breeding.manage",
+  BREEDING_HEAT_RECORD: "breeding.heat.record",
+  BREEDING_EVENT_RECORD: "breeding.event.record",
+  BREEDING_PREGNANCY_ASSESS: "breeding.pregnancy.assess",
+  BREEDING_CALVING_RECORD: "breeding.calving.record",
+  BREEDING_PEDIGREE_MANAGE: "breeding.pedigree.manage",
+  BREEDING_REPORTS_VIEW: "breeding.reports.view",
+  FINANCE_VIEW: "finance.view",
+  FINANCE_MANAGE: "finance.manage",
+  FINANCE_INCOME_MANAGE: "finance.income.manage",
+  FINANCE_EXPENSE_MANAGE: "finance.expense.manage",
+  FINANCE_SALES_MANAGE: "finance.sales.manage",
+  FINANCE_PAYMENTS_MANAGE: "finance.payments.manage",
+  FINANCE_BUDGETS_MANAGE: "finance.budgets.manage",
+  FINANCE_ASSETS_MANAGE: "finance.assets.manage",
+  FINANCE_REPORTS_VIEW: "finance.reports.view",
+  FINANCE_AUDIT_VIEW: "finance.audit.view",
+  MARKETPLACE_VIEW: "marketplace.view",
+  MARKETPLACE_LISTING_MANAGE: "marketplace.listing.manage",
+  MARKETPLACE_INQUIRY_MANAGE: "marketplace.inquiry.manage",
+  MARKETPLACE_SALE_CONFIRM: "marketplace.sale.confirm",
+  MARKETPLACE_REPORT_CREATE: "marketplace.report.create",
+  MARKETPLACE_MODERATE: "marketplace.moderate",
+});
+
+export const FARM_ROLE_LABELS = Object.freeze({
+  FARM_OWNER: "Farm Owner",
+  FARM_MANAGER: "Farm Manager",
+  WORKER: "Worker",
+  VETERINARIAN: "Veterinarian",
+});
+
+export const FARM_MODULES = Object.freeze({
+  farm: Object.freeze({ key: "farm", title: "Farm Management", description: "Farm settings and operational details", permission: PERMISSIONS.FARM_MANAGE }),
+  staff: Object.freeze({ key: "staff", title: "Staff & Invitations", description: "Team membership and access", permission: PERMISSIONS.STAFF_VIEW }),
+  cattle: Object.freeze({ key: "cattle", title: "Cattle", description: "Herd profiles and lifecycle records", permission: PERMISSIONS.CATTLE_VIEW }),
+  health: Object.freeze({ key: "health", title: "Health", description: "Veterinary care and vaccinations", permission: PERMISSIONS.HEALTH_VIEW }),
+  milk: Object.freeze({ key: "milk", title: "Milk Production", description: "Lactations, sessions and quality", permission: PERMISSIONS.MILK_VIEW }),
+  feed: Object.freeze({ key: "feed", title: "Feed & Nutrition", description: "Inventory, feeding schedules and nutrition plans", permission: PERMISSIONS.FEED_VIEW }),
+  breeding: Object.freeze({ key: "breeding", title: "Breeding & Genetics", description: "Reproduction, calving, offspring and pedigree", permission: PERMISSIONS.BREEDING_VIEW }),
+  finance: Object.freeze({ key: "finance", title: "Finance & Resources", description: "Income, expenses, payments, budgets and farm assets", permission: PERMISSIONS.FINANCE_VIEW }),
+  marketplace: Object.freeze({ key: "marketplace", title: "Cattle Marketplace", description: "Browse cattle, manage farm listings and buyer inquiries", permission: PERMISSIONS.MARKETPLACE_VIEW }),
+});
+
+export function roleLabel(role) {
+  return FARM_ROLE_LABELS[role] || "Unrecognized role";
+}

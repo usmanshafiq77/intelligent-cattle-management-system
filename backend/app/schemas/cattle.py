@@ -243,3 +243,11 @@ class CattleResponse(BaseModel):
     updated_at: datetime
     latest_weight: WeightResponse | None = None
     media_count: int = 0
+
+
+class CattleSummaryResponse(BaseModel):
+    total: int
+    female_count: int
+    male_count: int
+    breed_count: int
+    status_counts: dict[CattleStatus, int]

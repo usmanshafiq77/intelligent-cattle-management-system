@@ -435,6 +435,7 @@ class HealthReminderResponse(BaseModel):
         "VACCINATION_OVERDUE",
         "VETERINARY_VISIT",
         "FOLLOW_UP_OVERDUE",
+        "FOLLOW_UP_UPCOMING",
         "TREATMENT_OUTSTANDING",
     ]
     source_id: UUID

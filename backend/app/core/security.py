@@ -46,7 +46,11 @@ def verify_password_safely(
     return hashed_password is not None and matches
 
 
-def create_access_token(user_id: UUID) -> str:
+def create_access_token(
+    user_id: UUID,
+    token_version: int = 0,
+) -> str:
+    """Create a JWT with the user's current token version."""
     settings = get_settings()
 
     now = datetime.now(timezone.utc)
@@ -59,6 +63,7 @@ def create_access_token(user_id: UUID) -> str:
         "iat": now,
         "exp": expires,
         "type": "access",
+        "token_version": token_version,
     }
 
     return jwt.encode(
@@ -69,6 +74,7 @@ def create_access_token(user_id: UUID) -> str:
 
 
 def decode_access_token(token: str) -> dict:
+    """Decode a JWT, allowing pre-migration tokens to imply version zero."""
     settings = get_settings()
 
     return jwt.decode(
@@ -76,6 +82,11 @@ def decode_access_token(token: str) -> dict:
         settings.JWT_SECRET_KEY.get_secret_value(),
         algorithms=["HS256"],
         options={
-            "require": ["sub", "iat", "exp", "type"]
+            "require": [
+                "sub",
+                "iat",
+                "exp",
+                "type",
+            ]
         },
     )

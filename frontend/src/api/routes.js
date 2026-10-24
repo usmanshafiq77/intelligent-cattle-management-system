@@ -15,6 +15,8 @@ export const apiRoutes = Object.freeze({
     me: "/auth/me",
     verifyEmail: "/auth/verify-email",
     resendVerification: "/auth/verification/resend",
+    forgotPassword: "/auth/forgot-password",
+    resetPassword: "/auth/reset-password",
   }),
   farms: Object.freeze({
     collection: "/farms",
@@ -43,6 +45,7 @@ export const apiRoutes = Object.freeze({
   }),
   cattle: Object.freeze({
     collection: (farmId) => `${farmRoot(farmId)}/cattle`,
+    summary: (farmId) => `${farmRoot(farmId)}/cattle/summary`,
     detail: cattleRoot,
     lifecycle: (farmId, cattleId) => `${cattleRoot(farmId, cattleId)}/lifecycle`,
     weights: (farmId, cattleId) => `${cattleRoot(farmId, cattleId)}/weights`,
@@ -58,5 +61,35 @@ export const apiRoutes = Object.freeze({
   milk: Object.freeze({
     root: (farmId, resource) => `${farmRoot(farmId)}/milk/${resource}`,
     detail: (farmId, resource, recordId) => `${farmRoot(farmId)}/milk/${resource}/${segment(recordId, "recordId")}`,
+  }),
+  feed: Object.freeze({
+    root: (farmId, resource) => `${farmRoot(farmId)}/feed/${resource}`,
+    item: (farmId, itemId) => `${farmRoot(farmId)}/feed/items/${segment(itemId, "itemId")}`,
+    schedule: (farmId, scheduleId) => `${farmRoot(farmId)}/feed/schedules/${segment(scheduleId, "scheduleId")}`,
+    nutritionPlan: (farmId, planId) => `${farmRoot(farmId)}/feed/nutrition-plans/${segment(planId, "planId")}`,
+  }),
+  breeding: Object.freeze({
+    root: (farmId, resource) => `${farmRoot(farmId)}/breeding/${resource}`,
+    event: (farmId, eventId) => `${farmRoot(farmId)}/breeding/events/${segment(eventId, "eventId")}`,
+    calvingClinical: (farmId, eventId) => `${farmRoot(farmId)}/breeding/calvings/${segment(eventId, "eventId")}/clinical`,
+    offspring: (farmId, eventId) => `${farmRoot(farmId)}/breeding/calvings/${segment(eventId, "eventId")}/offspring`,
+    pedigree: (farmId, cattleId) => `${farmRoot(farmId)}/breeding/pedigree/${segment(cattleId, "cattleId")}`,
+    reminder: (farmId, reminderId) => `${farmRoot(farmId)}/breeding/reminders/${segment(reminderId, "reminderId")}`,
+  }),
+  finance: Object.freeze({
+    root: (farmId, resource) => `${farmRoot(farmId)}/finance/${resource}`,
+    transaction: (farmId, transactionId) => `${farmRoot(farmId)}/finance/transactions/${segment(transactionId, "transactionId")}`,
+    asset: (farmId, assetId) => `${farmRoot(farmId)}/finance/assets/${segment(assetId, "assetId")}`,
+  }),
+  marketplace: Object.freeze({
+    listings: "/marketplace/listings",
+    listing: (listingId) => `/marketplace/listings/${segment(listingId, "listingId")}`,
+    inquiry: (inquiryId) => `/marketplace/inquiries/${segment(inquiryId, "inquiryId")}`,
+    buyerInquiries: "/marketplace/inquiries",
+    saved: "/marketplace/saved",
+    notifications: "/marketplace/notifications",
+    moderationReports: "/marketplace/moderation/reports",
+    sellerRoot: (farmId, resource) => `${farmRoot(farmId)}/marketplace/${resource}`,
+    sellerListing: (farmId, listingId) => `${farmRoot(farmId)}/marketplace/listings/${segment(listingId, "listingId")}`,
   }),
 });

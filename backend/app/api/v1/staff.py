@@ -45,8 +45,34 @@ def _custom_role_ids(
     )
 
 
+def _custom_role_ids_by_member(
+    db: Session,
+    *,
+    farm_id: UUID,
+    membership_ids: list[UUID],
+) -> dict[UUID, list[UUID]]:
+    assignments = {membership_id: [] for membership_id in membership_ids}
+    if not membership_ids:
+        return assignments
+    rows = db.execute(
+        select(FarmMemberRole.member_id, FarmMemberRole.role_id)
+        .where(
+            FarmMemberRole.farm_id == farm_id,
+            FarmMemberRole.member_id.in_(membership_ids),
+        )
+        .order_by(FarmMemberRole.member_id, FarmMemberRole.role_id)
+    )
+    for member_id, role_id in rows:
+        assignments[member_id].append(role_id)
+    return assignments
+
+
 def _staff_response(
-    db: Session, member: FarmMember, user: User
+    db: Session,
+    member: FarmMember,
+    user: User,
+    *,
+    custom_role_ids: list[UUID] | None = None,
 ) -> StaffResponse:
     return StaffResponse(
         membership_id=member.id,
@@ -56,8 +82,12 @@ def _staff_response(
         role=member.role,
         status=member.status,
         joined_at=member.joined_at,
-        custom_role_ids=_custom_role_ids(
-            db, farm_id=member.farm_id, membership_id=member.id
+        custom_role_ids=(
+            custom_role_ids
+            if custom_role_ids is not None
+            else _custom_role_ids(
+                db, farm_id=member.farm_id, membership_id=member.id
+            )
         ),
     )
 
@@ -114,7 +144,20 @@ def list_farm_staff(
         .limit(limit)
         .offset(offset)
     ).all()
-    return [_staff_response(db, member, user) for member, user in records]
+    role_ids = _custom_role_ids_by_member(
+        db,
+        farm_id=farm_id,
+        membership_ids=[member.id for member, _ in records],
+    )
+    return [
+        _staff_response(
+            db,
+            member,
+            user,
+            custom_role_ids=role_ids[member.id],
+        )
+        for member, user in records
+    ]
 
 
 @router.get(

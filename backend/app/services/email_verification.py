@@ -6,7 +6,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.models.email_verification import EmailVerificationToken
-from app.models.user import User
+from app.models.user import User, UserStatus
 
 
 class InvalidVerificationTokenError(ValueError):
@@ -75,6 +75,8 @@ def verify_email_token(
     token.used_at = verified_at
     if user.email_verified_at is None:
         user.email_verified_at = verified_at
+    if user.status == UserStatus.PENDING:
+        user.status = UserStatus.ACTIVE
 
     db.execute(
         update(EmailVerificationToken)

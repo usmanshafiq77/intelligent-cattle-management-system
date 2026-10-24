@@ -10,18 +10,16 @@ import { authErrorMessage, authFieldErrors } from "../authErrors";
 import { requireLoginResponse } from "../authContracts";
 import { useOptionalAuth } from "../context/AuthProvider";
 import { AuthLayout } from "../components/AuthLayout";
-import { AuthSuccessState } from "../components/AuthSuccessState";
 import { AuthSwitchPrompt } from "../components/AuthSwitchPrompt";
 import { useAuthSubmission } from "../hooks/useAuthSubmission";
 import { loginPayload, validateLogin } from "../validation/authValidation";
 
-export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSetter, completeLogin }) {
+export function LoginScreen({ onBack, onCreateAccount, onVerifyEmail, onForgotPassword, onAuthenticated, api = authApi, tokenSetter, completeLogin }) {
   const { spacing } = useAppTheme();
   const passwordRef = useRef(null);
   const [values, setValues] = useState({ email: "", password: "" });
   const [errors, setErrors] = useState({});
   const [feedback, setFeedback] = useState(null);
-  const [signedIn, setSignedIn] = useState(false);
   const { submitting, run } = useAuthSubmission();
   const auth = useOptionalAuth();
   const completeSession = completeLogin || auth?.completeLogin;
@@ -53,6 +51,7 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
       return contract;
     });
     if (result.skipped || result.cancelled) return;
+    if (result.value?.cancelled || result.value?.authenticated === false) return;
     if (result.error) {
       setErrors(authFieldErrors(result.error));
       setFeedback(authErrorMessage(result.error, "login"));
@@ -60,21 +59,12 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
     }
 
     setValues((current) => ({ ...current, password: "" }));
-    setSignedIn(true);
+    onAuthenticated?.();
   };
 
   return (
     <AuthLayout eyebrow="SECURE ACCESS" title="Welcome Back" subtitle="Sign in to continue managing your ICMS workspace." onBack={onBack}>
-      {signedIn ? (
-        <AuthSuccessState
-          title="Login successful"
-          message="Your session credentials have been accepted securely."
-          detail="Session restoration and authenticated destination routing are introduced in later Step 19.6 work."
-          primaryTitle="Return to Welcome"
-          onPrimary={onBack}
-        />
-      ) : (
-        <View style={{ gap: spacing.lg }}>
+      <View style={{ gap: spacing.lg }}>
           {feedback ? <InlineFeedback type="error" message={feedback} /> : null}
           <AppInput
             label="Email Address"
@@ -119,9 +109,19 @@ export function LoginScreen({ onBack, onCreateAccount, api = authApi, tokenSette
             accessibilityHint="Submits your credentials securely to ICMS"
             testID="login-submit"
           />
+          {onForgotPassword ? (
+            <AuthSwitchPrompt message="" action="Forgot Password?" onPress={onForgotPassword} />
+          ) : null}
+          {onVerifyEmail ? (
+            <AppButton
+              title="Verify or Resend Email"
+              variant="outline"
+              onPress={onVerifyEmail}
+              accessibilityHint="Opens email verification and resend options"
+            />
+          ) : null}
           <AuthSwitchPrompt message="New to ICMS?" action="Create Account" onPress={onCreateAccount} />
-        </View>
-      )}
+      </View>
     </AuthLayout>
   );
 }

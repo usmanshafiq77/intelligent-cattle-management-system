@@ -79,10 +79,18 @@ class SentInvitation:
     farm_name: str
 
 
+@dataclass
+class SentPasswordReset:
+    recipient: str
+    token: str
+    expires_at: datetime
+
+
 class MemoryEmailSender:
     def __init__(self) -> None:
         self.messages: list[SentVerification] = []
         self.invitation_messages: list[SentInvitation] = []
+        self.password_reset_messages: list[SentPasswordReset] = []
 
     def send_verification_email(
         self,
@@ -105,6 +113,17 @@ class MemoryEmailSender:
     ) -> None:
         self.invitation_messages.append(
             SentInvitation(recipient, token, expires_at, farm_name)
+        )
+
+    def send_password_reset_email(
+        self,
+        *,
+        recipient: str,
+        token: str,
+        expires_at: datetime,
+    ) -> None:
+        self.password_reset_messages.append(
+            SentPasswordReset(recipient, token, expires_at)
         )
 
 

@@ -43,6 +43,27 @@ STEP_18_MILK_PERMISSIONS = {
     "milk.analytics.view",
 }
 
+FEED_MIGRATION_PERMISSIONS = {
+    "feed.record",
+    "feed.inventory.manage",
+    "feed.schedule.manage",
+    "feed.nutrition.view",
+    "feed.nutrition.manage",
+    "feed.cost.view",
+    "feed.reports.view",
+}
+BREEDING_MIGRATION_PERMISSIONS = {
+    "breeding.heat.record", "breeding.event.record",
+    "breeding.pregnancy.assess", "breeding.calving.record",
+    "breeding.pedigree.manage", "breeding.reports.view",
+}
+FINANCE_MIGRATION_PERMISSIONS = {
+    "finance.income.manage", "finance.expense.manage", "finance.sales.manage",
+    "finance.payments.manage", "finance.budgets.manage", "finance.assets.manage",
+    "finance.reports.view", "finance.audit.view",
+}
+MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
+
 
 def test_health_migration_lifecycle_seed_and_tenant_constraints():
     database_url = os.environ["TEST_DATABASE_URL"]
@@ -120,7 +141,12 @@ def test_health_migration_lifecycle_seed_and_tenant_constraints():
 
             # Step 17 contains 32 permissions.
             expected_step17_permissions = (
-                set(PERMISSION_CODES) - STEP_18_MILK_PERMISSIONS
+                set(PERMISSION_CODES)
+                - STEP_18_MILK_PERMISSIONS
+                - FEED_MIGRATION_PERMISSIONS
+                    - BREEDING_MIGRATION_PERMISSIONS
+                    - FINANCE_MIGRATION_PERMISSIONS
+                    - MARKETPLACE_MIGRATION_PERMISSIONS
             )
 
             actual_step17_permissions = set(

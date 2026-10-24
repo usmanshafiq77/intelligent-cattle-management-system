@@ -19,7 +19,7 @@ from app.schemas.milk import (
     AnimalProductionTotal, MilkDatasetRow, ProductionBreakdown,
     ProductionBucket, ProductionSummary, SessionTotal,
 )
-from app.services.milk import effective_quality, effective_session
+from app.services.milk import effective_qualities, effective_sessions
 
 
 router = APIRouter(prefix=f"{MILK_PREFIX}/analytics")
@@ -51,7 +51,7 @@ def _effective_rows(
     )
     if cattle_id:
         query = query.where(MilkingSession.cattle_id == cattle_id)
-    return [effective_session(db, row) for row in db.scalars(query)]
+    return effective_sessions(db, list(db.scalars(query)))
 
 
 @router.get("/production", response_model=ProductionSummary)
@@ -138,15 +138,47 @@ def milk_dataset(
         .order_by(MilkingSession.milking_date, MilkingSession.id)
         .limit(limit).offset(offset)
     )
-    output = []
-    for session, lactation, animal in records:
-        effective = effective_session(db, session)
-        quality = db.scalar(
-            select(MilkQualityMeasurement)
-            .where(MilkQualityMeasurement.session_id == session.id)
-            .order_by(MilkQualityMeasurement.tested_at.desc()).limit(1)
+    rows = list(records)
+    sessions = [session for session, _, _ in rows]
+    effective_by_session = {
+        session.id: values
+        for session, values in zip(
+            sessions,
+            effective_sessions(db, sessions),
+            strict=True,
         )
-        quality_values = effective_quality(db, quality)["effective_values"] if quality else {}
+    }
+    session_ids = [session.id for session in sessions]
+    quality_by_session = {}
+    if session_ids:
+        qualities = db.scalars(
+            select(MilkQualityMeasurement)
+            .where(MilkQualityMeasurement.session_id.in_(session_ids))
+            .order_by(
+                MilkQualityMeasurement.session_id,
+                MilkQualityMeasurement.tested_at.desc(),
+                MilkQualityMeasurement.id.desc(),
+            )
+        )
+        for quality in qualities:
+            quality_by_session.setdefault(quality.session_id, quality)
+    quality_records = list(quality_by_session.values())
+    effective_quality_by_id = {
+        quality.id: values["effective_values"]
+        for quality, values in zip(
+            quality_records,
+            effective_qualities(db, quality_records),
+            strict=True,
+        )
+    }
+
+    output = []
+    for session, lactation, animal in rows:
+        effective = effective_by_session[session.id]
+        quality = quality_by_session.get(session.id)
+        quality_values = (
+            effective_quality_by_id[quality.id] if quality else {}
+        )
         output.append(MilkDatasetRow(
             cattle_id=animal.id, species=animal.species.value, breed_id=animal.breed_id,
             date_of_birth=animal.date_of_birth, lactation_number=lactation.sequence_number,

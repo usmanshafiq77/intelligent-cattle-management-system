@@ -141,7 +141,9 @@ def test_unverified_email_is_rejected(client, db_session):
         email=invitee.email,
     )
 
-    assert _accept(client, invitee, raw_token).status_code == 400
+    response = _accept(client, invitee, raw_token)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Email verification required"
     db_session.refresh(invitation)
     assert invitation.status == InvitationStatus.PENDING
 

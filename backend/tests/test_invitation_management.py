@@ -122,7 +122,10 @@ def test_reissue_rotates_token_and_revokes_original(
     assert new_acceptance.status_code == 200
 
 
-def test_listing_transitions_expired_pending_invitation(client, db_session):
+def test_listing_reports_effective_expiry_without_mutating_invitation(
+    client,
+    db_session,
+):
     owner = create_user(db_session, email="expiry-list-owner@example.com")
     farm = create_owned_farm(db_session, owner=owner)
     _, invitation = create_invitation(
@@ -138,8 +141,46 @@ def test_listing_transitions_expired_pending_invitation(client, db_session):
     )
     assert response.status_code == 200
     assert [item["id"] for item in response.json()] == [str(invitation.id)]
+    assert response.json()[0]["status"] == "EXPIRED"
     db_session.refresh(invitation)
-    assert invitation.status == InvitationStatus.EXPIRED
+    assert invitation.status == InvitationStatus.PENDING
+
+    viewed = client.get(
+        f"/api/v1/farms/{farm.id}/invitations/{invitation.id}",
+        headers=authorization_header(owner),
+    )
+    assert viewed.status_code == 200
+    assert viewed.json()["status"] == "EXPIRED"
+    db_session.refresh(invitation)
+    assert invitation.status == InvitationStatus.PENDING
+
+
+def test_invitation_create_reports_delivery_failure_without_losing_record(
+    client,
+    db_session,
+    memory_email_sender,
+    monkeypatch,
+):
+    owner = create_user(db_session, email="delivery-owner@example.com")
+    farm = create_owned_farm(db_session, owner=owner)
+
+    def fail_delivery(**kwargs):
+        raise RuntimeError("simulated delivery outage")
+
+    monkeypatch.setattr(
+        memory_email_sender,
+        "send_invitation_email",
+        fail_delivery,
+    )
+    response = client.post(
+        f"/api/v1/farms/{farm.id}/invitations",
+        headers=authorization_header(owner),
+        json={"email": "delivery-target@example.com", "role": "WORKER"},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["delivery_status"] == "FAILED"
+    assert response.json()["status"] == "PENDING"
 
 
 def test_expired_invitation_cannot_be_revoked_as_pending(client, db_session):

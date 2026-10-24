@@ -4,6 +4,7 @@ from uuid import uuid4
 import jwt
 import pytest
 from pydantic import ValidationError
+from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.normalization import normalize_email
@@ -16,11 +17,41 @@ from app.core.security import (
 from app.schemas.invitation import InvitationCreate
 from app.schemas.user import UserLogin, UserRegister
 from app.services.email_verification import hash_verification_token
+from app.schemas.farm import FarmCreate
+from app.schemas.invitation import InvitationCreate
+from app.schemas.user import UserLogin
 from app.services.invitations import generate_invitation_token
 
 
 def test_email_normalization_is_consistent():
     assert normalize_email("  Person@Example.COM ") == "person@example.com"
+
+
+@pytest.mark.parametrize(
+    ("schema", "payload"),
+    [
+        (
+            UserLogin,
+            {
+                "email": "user@example.com",
+                "password": "ValidPassword123!",
+                "unexpected": True,
+            },
+        ),
+        (FarmCreate, {"name": "Safe Farm", "owner_id": "forbidden"}),
+        (
+            InvitationCreate,
+            {
+                "email": "worker@example.com",
+                "role": "WORKER",
+                "is_owner": True,
+            },
+        ),
+    ],
+)
+def test_security_sensitive_requests_reject_unknown_fields(schema, payload):
+    with pytest.raises(ValidationError):
+        schema.model_validate(payload)
 
 
 def test_authentication_input_size_limits():

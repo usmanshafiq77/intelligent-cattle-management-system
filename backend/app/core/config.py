@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import EmailStr, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -48,6 +48,10 @@ class Settings(BaseSettings):
         default=3600,
         gt=0,
     )
+    FORGOT_PASSWORD_RATE_LIMIT_REQUESTS: int = Field(default=3, gt=0)
+    FORGOT_PASSWORD_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=900, gt=0)
+    RESET_PASSWORD_RATE_LIMIT_REQUESTS: int = Field(default=10, gt=0)
+    RESET_PASSWORD_RATE_LIMIT_WINDOW_SECONDS: int = Field(default=900, gt=0)
     RATE_LIMIT_MAX_KEYS: int = Field(default=10_000, gt=0)
 
     EMAIL_DELIVERY_MODE: str = "console"
@@ -55,9 +59,24 @@ class Settings(BaseSettings):
         default=1440,
         gt=0,
     )
-    EMAIL_VERIFICATION_BASE_URL: str = (
-        "http://localhost:8765/api/v1/auth/verify-email"
-    )
+    FRONTEND_PUBLIC_URL: str = "http://localhost:8081"
+    EMAIL_VERIFICATION_BASE_URL: str | None = None
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = Field(default=20, gt=0)
+    PASSWORD_RESET_BASE_URL: str | None = None
+    INVITATION_ACCEPT_BASE_URL: str | None = None
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = Field(default=587, ge=1, le=65535)
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: SecretStr | None = None
+    SMTP_USE_STARTTLS: bool = True
+    SMTP_USE_SSL: bool = False
+    SMTP_SENDER_EMAIL: EmailStr | None = None
+    SMTP_SENDER_NAME: str = "ICMS"
+    SMTP_TIMEOUT_SECONDS: float = Field(default=10.0, gt=0, le=120)
+    SMTP_MAX_ATTEMPTS: int = Field(default=3, ge=1, le=5)
+    SMTP_RETRY_DELAY_SECONDS: float = Field(default=0.5, ge=0, le=30)
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "plain"
     MEDIA_ROOT: Path = BACKEND_DIR / "uploads"
     CATTLE_MEDIA_MAX_BYTES: int = Field(
         default=10 * 1024 * 1024,
@@ -91,14 +110,121 @@ class Settings(BaseSettings):
                 normalized.append(value)
         return normalized
 
-    @model_validator(mode="after")
-    def require_secure_production_cors(self):
-        if self.APP_ENV.lower() == "production" and any(
-            not origin.startswith("https://")
-            for origin in self.CORS_ALLOWED_ORIGINS
+    @field_validator(
+        "FRONTEND_PUBLIC_URL",
+        "EMAIL_VERIFICATION_BASE_URL",
+        "PASSWORD_RESET_BASE_URL",
+        "INVITATION_ACCEPT_BASE_URL",
+    )
+    @classmethod
+    def validate_action_url(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = value.strip().rstrip("/")
+        parsed = urlsplit(normalized)
+        if (
+            not normalized
+            or parsed.scheme not in {"http", "https"}
+            or not parsed.netloc
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
         ):
-            raise ValueError("Production CORS origins must use HTTPS")
+            raise ValueError(
+                "Public action URLs must be absolute HTTP(S) URLs without "
+                "credentials, queries, or fragments"
+            )
+        return normalized
+
+    @field_validator("EMAIL_DELIVERY_MODE")
+    @classmethod
+    def validate_email_mode(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"console", "memory", "smtp"}:
+            raise ValueError("EMAIL_DELIVERY_MODE must be console, memory, or smtp")
+        return normalized
+
+    @field_validator("LOG_LEVEL")
+    @classmethod
+    def validate_log_level(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if normalized not in {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"}:
+            raise ValueError("LOG_LEVEL is invalid")
+        return normalized
+
+    @field_validator("LOG_FORMAT")
+    @classmethod
+    def validate_log_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"plain", "json"}:
+            raise ValueError("LOG_FORMAT must be plain or json")
+        return normalized
+
+    @model_validator(mode="after")
+    def validate_environment_security(self):
+        environment = self.APP_ENV.strip().lower()
+        secret = self.JWT_SECRET_KEY.get_secret_value()
+        if environment not in {"development", "local"} and len(secret) < 32:
+            raise ValueError("JWT_SECRET_KEY must contain at least 32 characters")
+
+        if self.SMTP_USE_STARTTLS and self.SMTP_USE_SSL:
+            raise ValueError("Choose SMTP_USE_STARTTLS or SMTP_USE_SSL, not both")
+
+        if self.EMAIL_DELIVERY_MODE == "smtp":
+            if not self.SMTP_HOST or not self.SMTP_SENDER_EMAIL:
+                raise ValueError(
+                    "SMTP_HOST and SMTP_SENDER_EMAIL are required in smtp mode"
+                )
+            if bool(self.SMTP_USERNAME) != bool(self.SMTP_PASSWORD):
+                raise ValueError(
+                    "SMTP_USERNAME and SMTP_PASSWORD must be configured together"
+                )
+            if not self.SMTP_USE_STARTTLS and not self.SMTP_USE_SSL:
+                raise ValueError(
+                    "SMTP delivery requires STARTTLS or implicit SSL"
+                )
+
+        if environment == "production":
+            if any(
+                not origin.startswith("https://")
+                for origin in self.CORS_ALLOWED_ORIGINS
+            ):
+                raise ValueError("Production CORS origins must use HTTPS")
+            public_urls = [
+                self.FRONTEND_PUBLIC_URL,
+                self.EMAIL_VERIFICATION_BASE_URL,
+                self.PASSWORD_RESET_BASE_URL,
+                self.INVITATION_ACCEPT_BASE_URL,
+            ]
+            if any(url and not url.startswith("https://") for url in public_urls):
+                raise ValueError("Production public action URLs must use HTTPS")
+            if self.EMAIL_DELIVERY_MODE != "smtp":
+                raise ValueError("Production requires EMAIL_DELIVERY_MODE=smtp")
+            if secret in {
+                "replace_with_a_long_random_secret",
+                "change-me-change-me-change-me-change-me",
+            }:
+                raise ValueError("Production JWT_SECRET_KEY must not use a placeholder")
         return self
+
+    @property
+    def verification_action_url(self) -> str:
+        return self.EMAIL_VERIFICATION_BASE_URL or (
+            f"{self.FRONTEND_PUBLIC_URL}/auth/verify-email"
+        )
+
+    @property
+    def password_reset_action_url(self) -> str:
+        return self.PASSWORD_RESET_BASE_URL or (
+            f"{self.FRONTEND_PUBLIC_URL}/reset-password"
+        )
+
+    @property
+    def invitation_accept_action_url(self) -> str:
+        return self.INVITATION_ACCEPT_BASE_URL or (
+            f"{self.FRONTEND_PUBLIC_URL}/invitations/accept"
+        )
 
     model_config = SettingsConfigDict(
         env_file=BACKEND_DIR / ".env",

@@ -27,6 +27,7 @@ from app.schemas.milk import (
 from app.services.milk import (
     MilkValidationError,
     effective_session,
+    effective_sessions,
     scoped_lactation,
     scoped_session,
     validate_session_for_create,
@@ -110,6 +111,7 @@ def create_session(
             lactation_id=data.lactation_id,
             milking_date=data.milking_date,
             operator_id=data.operator_id,
+            recorded_time=data.recorded_time,
         )
 
     except MilkValidationError as error:
@@ -194,6 +196,7 @@ def bulk_create_sessions(
                 lactation_id=item.lactation_id,
                 milking_date=item.milking_date,
                 operator_id=item.operator_id,
+                recorded_time=item.recorded_time,
             )
 
         # Add all records to the same database transaction.
@@ -223,10 +226,7 @@ def bulk_create_sessions(
 
     return {
         "created": len(records),
-        "records": [
-            effective_session(db, record)
-            for record in records
-        ],
+        "records": effective_sessions(db, records),
     }
 
 
@@ -287,7 +287,7 @@ def list_sessions(
             MilkingSession.session_kind == session_kind
         )
 
-    records = db.scalars(
+    records = list(db.scalars(
         query.order_by(
             MilkingSession.milking_date.desc(),
             MilkingSession.session_code,
@@ -295,12 +295,9 @@ def list_sessions(
         )
         .limit(limit)
         .offset(offset)
-    )
+    ))
 
-    return [
-        effective_session(db, record)
-        for record in records
-    ]
+    return effective_sessions(db, records)
 
 
 @router.get(

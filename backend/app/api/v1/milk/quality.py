@@ -14,7 +14,11 @@ from app.db.session import get_db
 from app.models.milk import MilkQualityMeasurement
 from app.models.user import User
 from app.schemas.milk import QualityCreate, QualityResponse
-from app.services.milk import effective_quality, scoped_session
+from app.services.milk import (
+    effective_qualities,
+    effective_quality,
+    scoped_session,
+)
 
 
 router = APIRouter(prefix=f"{MILK_PREFIX}/quality")
@@ -59,8 +63,8 @@ def list_quality(
         query = query.where(MilkQualityMeasurement.cattle_id == cattle_id)
     if session_id:
         query = query.where(MilkQualityMeasurement.session_id == session_id)
-    records = db.scalars(query.order_by(MilkQualityMeasurement.tested_at.desc()).limit(limit).offset(offset))
-    return [effective_quality(db, record) for record in records]
+    records = list(db.scalars(query.order_by(MilkQualityMeasurement.tested_at.desc()).limit(limit).offset(offset)))
+    return effective_qualities(db, records)
 
 
 @router.get("/{quality_id}", response_model=QualityResponse)

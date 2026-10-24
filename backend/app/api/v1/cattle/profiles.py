@@ -1,9 +1,10 @@
 import logging
 from datetime import date, datetime, timezone
+from typing import Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -28,7 +29,12 @@ from app.models.cattle import (
     Species,
 )
 from app.models.user import User
-from app.schemas.cattle import CattleCreate, CattleResponse, CattleUpdate
+from app.schemas.cattle import (
+    CattleCreate,
+    CattleResponse,
+    CattleSummaryResponse,
+    CattleUpdate,
+)
 from app.services.cattle import (
     CattleValidationError,
     clean_tag,
@@ -42,6 +48,43 @@ from app.services.cattle import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix=CATTLE_PREFIX)
+
+
+def _filtered_cattle_query(
+    *,
+    farm_id: UUID,
+    search: str | None,
+    species: Species | None,
+    sex: AnimalSex | None,
+    breed_id: UUID | None,
+    lifecycle_status: CattleStatus | None,
+    registered_from: date | None,
+    registered_to: date | None,
+):
+    if registered_from and registered_to and registered_from > registered_to:
+        raise HTTPException(
+            status_code=422,
+            detail="registered_from cannot be after registered_to",
+        )
+    statement = select(Cattle).where(Cattle.farm_id == farm_id)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        statement = statement.where(
+            or_(Cattle.tag_number.ilike(term), Cattle.name.ilike(term))
+        )
+    if species is not None:
+        statement = statement.where(Cattle.species == species)
+    if sex is not None:
+        statement = statement.where(Cattle.sex == sex)
+    if breed_id is not None:
+        statement = statement.where(Cattle.breed_id == breed_id)
+    if lifecycle_status is not None:
+        statement = statement.where(Cattle.status == lifecycle_status)
+    if registered_from is not None:
+        statement = statement.where(Cattle.registration_date >= registered_from)
+    if registered_to is not None:
+        statement = statement.where(Cattle.registration_date <= registered_to)
+    return statement
 
 
 @router.post(
@@ -174,6 +217,7 @@ def list_cattle(
     lifecycle_status: CattleStatus | None = Query(default=None, alias="status"),
     registered_from: date | None = None,
     registered_to: date | None = None,
+    sort: Literal["recent", "tag", "name"] = "recent",
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     access: FarmAccess = Depends(
@@ -181,37 +225,84 @@ def list_cattle(
     ),
     db: Session = Depends(get_db),
 ):
-    if registered_from and registered_to and registered_from > registered_to:
-        raise HTTPException(
-            status_code=422,
-            detail="registered_from cannot be after registered_to",
-        )
-    statement = select(Cattle).where(Cattle.farm_id == farm_id)
-    if search:
-        term = f"%{search.strip()}%"
-        statement = statement.where(
-            or_(Cattle.tag_number.ilike(term), Cattle.name.ilike(term))
-        )
-    if species is not None:
-        statement = statement.where(Cattle.species == species)
-    if sex is not None:
-        statement = statement.where(Cattle.sex == sex)
-    if breed_id is not None:
-        statement = statement.where(Cattle.breed_id == breed_id)
-    if lifecycle_status is not None:
-        statement = statement.where(Cattle.status == lifecycle_status)
-    if registered_from is not None:
-        statement = statement.where(Cattle.registration_date >= registered_from)
-    if registered_to is not None:
-        statement = statement.where(Cattle.registration_date <= registered_to)
+    statement = _filtered_cattle_query(
+        farm_id=farm_id,
+        search=search,
+        species=species,
+        sex=sex,
+        breed_id=breed_id,
+        lifecycle_status=lifecycle_status,
+        registered_from=registered_from,
+        registered_to=registered_to,
+    )
+    ordering = {
+        "recent": (Cattle.created_at.desc(), Cattle.id),
+        "tag": (Cattle.normalized_tag, Cattle.id),
+        "name": (
+            func.coalesce(func.lower(Cattle.name), Cattle.normalized_tag),
+            Cattle.id,
+        ),
+    }[sort]
     animals = list(
         db.scalars(
-            statement.order_by(Cattle.created_at.desc(), Cattle.id)
+            statement.order_by(*ordering)
             .limit(limit)
             .offset(offset)
         )
     )
     return cattle_responses(db, animals)
+
+
+@router.get("/summary", response_model=CattleSummaryResponse)
+def get_cattle_summary(
+    farm_id: UUID,
+    search: str | None = Query(default=None, max_length=100),
+    species: Species | None = None,
+    sex: AnimalSex | None = None,
+    breed_id: UUID | None = None,
+    lifecycle_status: CattleStatus | None = Query(
+        default=None,
+        alias="status",
+    ),
+    registered_from: date | None = None,
+    registered_to: date | None = None,
+    access: FarmAccess = Depends(
+        require_farm_permission(Permission.CATTLE_VIEW)
+    ),
+    db: Session = Depends(get_db),
+):
+    filtered = _filtered_cattle_query(
+        farm_id=farm_id,
+        search=search,
+        species=species,
+        sex=sex,
+        breed_id=breed_id,
+        lifecycle_status=lifecycle_status,
+        registered_from=registered_from,
+        registered_to=registered_to,
+    ).subquery()
+    totals = db.execute(
+        select(
+            func.count(filtered.c.id),
+            func.count().filter(filtered.c.sex == AnimalSex.FEMALE),
+            func.count().filter(filtered.c.sex == AnimalSex.MALE),
+            func.count(func.distinct(filtered.c.breed_id)),
+        )
+    ).one()
+    status_counts = {status: 0 for status in CattleStatus}
+    for cattle_status, count in db.execute(
+        select(filtered.c.status, func.count(filtered.c.id)).group_by(
+            filtered.c.status
+        )
+    ):
+        status_counts[CattleStatus(cattle_status)] = count
+    return CattleSummaryResponse(
+        total=totals[0],
+        female_count=totals[1],
+        male_count=totals[2],
+        breed_count=totals[3],
+        status_counts=status_counts,
+    )
 
 
 @router.get("/{cattle_id}", response_model=CattleResponse)

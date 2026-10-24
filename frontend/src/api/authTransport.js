@@ -45,7 +45,7 @@ export function signalSessionExpired(token) {
   const normalized = normalizeToken(token);
   if (!normalized || normalized === lastExpiredToken) return;
   lastExpiredToken = normalized;
-  expirationListeners.forEach((listener) => listener({ reason: "unauthorized" }));
+  expirationListeners.forEach((listener) => listener({ reason: "unauthorized", token: normalized }));
 }
 
 export function resetAuthTransportForTests() {

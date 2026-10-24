@@ -1,4 +1,5 @@
 import {
+  buildApiUrl,
   createApiClient,
   createMultipartBody,
   serializeQuery,
@@ -36,6 +37,11 @@ afterEach(() => {
   jest.useRealTimers();
   jest.restoreAllMocks();
   resetAuthTransportForTests();
+});
+
+test("builds the registration URL with exactly one API prefix", () => {
+  expect(buildApiUrl("/auth/register", { baseUrl: "http://127.0.0.1:8000" }))
+    .toBe("http://127.0.0.1:8000/api/v1/auth/register");
 });
 
 test("attaches a Bearer token, serializes query values, and parses JSON", async () => {

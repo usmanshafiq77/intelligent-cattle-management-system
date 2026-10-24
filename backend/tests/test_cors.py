@@ -38,6 +38,17 @@ def test_unknown_web_origin_is_not_granted_cors_access():
     assert "access-control-allow-origin" not in response.headers
 
 
+def test_api_responses_include_baseline_security_headers():
+    with TestClient(app) as client:
+        response = client.get("/api/v1/health")
+
+    assert response.status_code == 200
+    assert response.headers["x-content-type-options"] == "nosniff"
+    assert response.headers["x-frame-options"] == "DENY"
+    assert response.headers["referrer-policy"] == "no-referrer"
+    assert len(response.headers["x-request-id"]) == 32
+
+
 @pytest.mark.parametrize(
     ("app_environment", "origins"),
     [

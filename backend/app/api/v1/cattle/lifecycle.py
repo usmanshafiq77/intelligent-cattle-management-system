@@ -24,7 +24,9 @@ from app.schemas.cattle import (
 )
 from app.services.cattle import (
     CattleValidationError,
+    latest_lifecycle_event,
     validate_not_future,
+    validate_operational_lifecycle_time,
     validate_transition,
 )
 
@@ -58,6 +60,14 @@ def transition_cattle_lifecycle(
             raise CattleValidationError(
                 "Lifecycle event cannot predate cattle registration"
             )
+        validate_operational_lifecycle_time(
+            effective_at=effective_at,
+            latest_event=latest_lifecycle_event(
+                db,
+                farm_id=farm_id,
+                cattle_id=cattle_id,
+            ),
+        )
     except CattleValidationError as error:
         raise validation_error(error) from None
     event = CattleLifecycleEvent(

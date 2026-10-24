@@ -111,6 +111,7 @@ def validate_lactation_dates(
 def validate_session_for_create(
     db: Session, *, farm_id: UUID, cattle_id: UUID, lactation_id: UUID,
     milking_date: date, operator_id: UUID | None,
+    recorded_time: datetime | None = None,
 ) -> tuple[Cattle, MilkLactation]:
     animal = eligible_cattle(db, farm_id=farm_id, cattle_id=cattle_id)
     lactation = scoped_lactation(
@@ -125,6 +126,8 @@ def validate_session_for_create(
         raise MilkValidationError("milking_date is outside the lactation period")
     if milking_date > utc_today():
         raise MilkValidationError("milking_date cannot be in the future")
+    if recorded_time is not None and recorded_time > datetime.now(timezone.utc):
+        raise MilkValidationError("recorded_time cannot be in the future")
     if animal.date_of_birth and milking_date < animal.date_of_birth:
         raise MilkValidationError("milking_date cannot predate birth")
     validate_member(db, farm_id=farm_id, user_id=operator_id)
@@ -154,11 +157,38 @@ def latest_correction(
     )
 
 
-def effective_session(db: Session, record: MilkingSession) -> dict[str, Any]:
-    correction = latest_correction(
-        db, farm_id=record.farm_id, target_type=MilkCorrectionTarget.SESSION,
-        target_id=record.id,
+def latest_corrections(
+    db: Session,
+    *,
+    farm_id: UUID,
+    target_type: MilkCorrectionTarget,
+    target_ids: list[UUID],
+) -> dict[UUID, MilkRecordCorrection]:
+    if not target_ids:
+        return {}
+    rows = db.scalars(
+        select(MilkRecordCorrection)
+        .where(
+            MilkRecordCorrection.farm_id == farm_id,
+            MilkRecordCorrection.target_type == target_type,
+            MilkRecordCorrection.target_id.in_(set(target_ids)),
+        )
+        .order_by(
+            MilkRecordCorrection.target_id,
+            MilkRecordCorrection.created_at.desc(),
+            MilkRecordCorrection.id.desc(),
+        )
     )
+    latest: dict[UUID, MilkRecordCorrection] = {}
+    for correction in rows:
+        latest.setdefault(correction.target_id, correction)
+    return latest
+
+
+def _effective_session_values(
+    record: MilkingSession,
+    correction: MilkRecordCorrection | None,
+) -> dict[str, Any]:
     values = snapshot(record)
     if correction:
         values.update(correction.replacement_values)
@@ -167,11 +197,40 @@ def effective_session(db: Session, record: MilkingSession) -> dict[str, Any]:
     return values
 
 
-def effective_quality(db: Session, record: MilkQualityMeasurement) -> dict[str, Any]:
-    correction = latest_correction(
-        db, farm_id=record.farm_id, target_type=MilkCorrectionTarget.QUALITY,
-        target_id=record.id,
+def effective_session(db: Session, record: MilkingSession) -> dict[str, Any]:
+    return _effective_session_values(
+        record,
+        latest_correction(
+            db,
+            farm_id=record.farm_id,
+            target_type=MilkCorrectionTarget.SESSION,
+            target_id=record.id,
+        ),
     )
+
+
+def effective_sessions(
+    db: Session,
+    records: list[MilkingSession],
+) -> list[dict[str, Any]]:
+    if not records:
+        return []
+    corrections = latest_corrections(
+        db,
+        farm_id=records[0].farm_id,
+        target_type=MilkCorrectionTarget.SESSION,
+        target_ids=[record.id for record in records],
+    )
+    return [
+        _effective_session_values(record, corrections.get(record.id))
+        for record in records
+    ]
+
+
+def _effective_quality_values(
+    record: MilkQualityMeasurement,
+    correction: MilkRecordCorrection | None,
+) -> dict[str, Any]:
     values = snapshot(record)
     if correction:
         values.update(correction.replacement_values)
@@ -181,6 +240,39 @@ def effective_quality(db: Session, record: MilkQualityMeasurement) -> dict[str, 
         if values.get(key) is not None
     }
     return values
+
+
+def effective_quality(
+    db: Session,
+    record: MilkQualityMeasurement,
+) -> dict[str, Any]:
+    return _effective_quality_values(
+        record,
+        latest_correction(
+            db,
+            farm_id=record.farm_id,
+            target_type=MilkCorrectionTarget.QUALITY,
+            target_id=record.id,
+        ),
+    )
+
+
+def effective_qualities(
+    db: Session,
+    records: list[MilkQualityMeasurement],
+) -> list[dict[str, Any]]:
+    if not records:
+        return []
+    corrections = latest_corrections(
+        db,
+        farm_id=records[0].farm_id,
+        target_type=MilkCorrectionTarget.QUALITY,
+        target_ids=[record.id for record in records],
+    )
+    return [
+        _effective_quality_values(record, corrections.get(record.id))
+        for record in records
+    ]
 
 
 SESSION_CORRECTABLE_FIELDS = {"volume_liters", "notes"}

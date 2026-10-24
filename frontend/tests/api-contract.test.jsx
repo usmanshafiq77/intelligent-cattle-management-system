@@ -23,11 +23,17 @@ test("frontend contract checkpoint matches the backend OpenAPI guard", () => {
 test("critical service routes match the reviewed FastAPI paths", () => {
   expect(apiRoutes.auth.login).toBe("/auth/login");
   expect(apiRoutes.auth.me).toBe("/auth/me");
+  expect(apiRoutes.auth.forgotPassword).toBe("/auth/forgot-password");
+  expect(apiRoutes.auth.resetPassword).toBe("/auth/reset-password");
   expect(apiRoutes.staff.myPermissions("farm-id")).toBe("/farms/farm-id/staff/permissions/me");
   expect(apiRoutes.invitations.detail("farm-id", "invite-id")).toBe("/farms/farm-id/invitations/invite-id");
   expect(apiRoutes.cattle.detail("farm/id", "cow id")).toBe("/farms/farm%2Fid/cattle/cow%20id");
+  expect(apiRoutes.cattle.summary("farm-id")).toBe("/farms/farm-id/cattle/summary");
   expect(apiRoutes.healthRecords.history("farm-id", "cow-id")).toBe("/farms/farm-id/health/cattle/cow-id/history");
   expect(apiRoutes.milk.root("farm-id", "analytics")).toBe("/farms/farm-id/milk/analytics");
+  expect(apiRoutes.feed.root("farm-id", "items")).toBe("/farms/farm-id/feed/items");
+  expect(apiRoutes.feed.item("farm/id", "feed id")).toBe("/farms/farm%2Fid/feed/items/feed%20id");
+  expect(apiRoutes.feed.nutritionPlan("farm-id", "plan-id")).toBe("/farms/farm-id/feed/nutrition-plans/plan-id");
 });
 
 test("auth form contract remains aligned with the backend schemas and JSON routes", () => {
@@ -45,6 +51,6 @@ test("auth form contract remains aligned with the backend schemas and JSON route
   expect(userSchema).toMatch(/class UserRegister[\s\S]*password:[\s\S]*min_length=8, max_length=128/);
   expect(userSchema).toMatch(/class UserLogin[\s\S]*password:[\s\S]*min_length=1, max_length=128/);
   expect(userSchema).toMatch(/class TokenResponse[\s\S]*access_token: str[\s\S]*token_type: str/);
-  expect(authRouter).toMatch(/"\/register"[\s\S]*response_model=UserResponse[\s\S]*status_code=status\.HTTP_201_CREATED/);
+  expect(authRouter).toMatch(/"\/register"[\s\S]*response_model=RegistrationResponse[\s\S]*status_code=status\.HTTP_201_CREATED/);
   expect(authRouter).toMatch(/"\/login"[\s\S]*response_model=TokenResponse/);
 });

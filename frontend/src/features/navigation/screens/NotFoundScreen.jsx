@@ -4,7 +4,7 @@ import { AppButton } from "../../../components/ui/AppButton";
 import { Screen } from "../../../components/ui/Screen";
 import { useAppTheme } from "../../../theme/ThemeProvider";
 
-export function NotFoundScreen({ onReturnHome }) {
+export function NotFoundScreen({ onReturnHome, actionLabel = "Return to ICMS" }) {
   const { theme, spacing, typography, layout } = useAppTheme();
 
   return (
@@ -13,7 +13,7 @@ export function NotFoundScreen({ onReturnHome }) {
         <Text style={[styles.code, { color: theme.colors.primary }]}>404</Text>
         <Text accessibilityRole="header" style={[styles.title, { color: theme.colors.text, fontSize: typography.sizes.heading, lineHeight: typography.lineHeights.heading }]}>Page not found</Text>
         <Text style={[styles.description, { color: theme.colors.textSecondary, fontSize: typography.sizes.body, lineHeight: typography.lineHeights.body, marginTop: spacing.sm }]}>The requested ICMS page is unavailable.</Text>
-        <AppButton title="Return to Welcome" onPress={onReturnHome} style={{ marginTop: spacing.xxl }} testID="not-found-home" />
+        <AppButton title={actionLabel} onPress={onReturnHome} style={{ marginTop: spacing.xxl }} testID="not-found-home" />
       </View>
     </Screen>
   );

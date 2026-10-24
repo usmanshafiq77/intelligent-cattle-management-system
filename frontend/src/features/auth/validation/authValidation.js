@@ -46,6 +46,21 @@ export function validateSignup(values) {
   return errors;
 }
 
+export function validateForgotPassword(values) {
+  const error = validateEmail(values.email);
+  return error ? { email: error } : {};
+}
+
+export function validateResetPassword(values) {
+  const errors = {};
+  if (!values.password) errors.password = "Password is required.";
+  else if (values.password.length < AUTH_LIMITS.passwordMin) errors.password = "Password must contain at least 8 characters.";
+  else if (values.password.length > AUTH_LIMITS.passwordMax) errors.password = "Password must be 128 characters or fewer.";
+  if (!values.confirmPassword) errors.confirmPassword = "Confirm your password.";
+  else if (values.confirmPassword !== values.password) errors.confirmPassword = "Passwords do not match.";
+  return errors;
+}
+
 export function loginPayload(values) {
   return { email: normalizeEmail(values.email), password: values.password };
 }

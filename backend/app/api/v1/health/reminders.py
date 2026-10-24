@@ -2,7 +2,7 @@ from datetime import datetime, time, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.farms import FarmAccess
@@ -11,6 +11,7 @@ from app.api.v1.auth import get_current_user
 from app.api.v1.health.dependencies import HEALTH_PREFIX, commit_or_error
 from app.core.permissions import Permission
 from app.db.session import get_db
+from app.models.cattle import Cattle, CattleStatus
 from app.models.health import (
     HealthEncounter,
     HealthRecordCorrection,
@@ -138,11 +139,19 @@ def list_health_reminders(
         raise HTTPException(
             status_code=422, detail="as_of must include a timezone"
         )
+    now = now.astimezone(timezone.utc)
     horizon = now + timedelta(days=horizon_days)
     items: list[HealthReminderResponse] = []
 
     def scoped(statement, model):
-        statement = statement.where(model.farm_id == farm_id)
+        eligible_cattle = select(Cattle.id).where(
+            Cattle.farm_id == farm_id,
+            Cattle.status.in_([CattleStatus.ACTIVE, CattleStatus.MISSING]),
+        )
+        statement = statement.where(
+            model.farm_id == farm_id,
+            model.cattle_id.in_(eligible_cattle),
+        )
         return (
             statement.where(model.cattle_id == cattle_id)
             if cattle_id
@@ -208,7 +217,7 @@ def list_health_reminders(
         scoped(
             select(HealthEncounter).where(
                 HealthEncounter.follow_up_due_at.is_not(None),
-                HealthEncounter.follow_up_due_at < now,
+                HealthEncounter.follow_up_due_at <= horizon,
             ),
             HealthEncounter,
         )
@@ -217,7 +226,7 @@ def list_health_reminders(
         scoped(
             select(VaccinationAdministration).where(
                 VaccinationAdministration.follow_up_due_at.is_not(None),
-                VaccinationAdministration.follow_up_due_at < now,
+                VaccinationAdministration.follow_up_due_at <= horizon,
             ),
             VaccinationAdministration,
         )
@@ -227,7 +236,7 @@ def list_health_reminders(
             select(VeterinaryVisit).where(
                 VeterinaryVisit.status == VeterinaryVisitStatus.COMPLETED,
                 VeterinaryVisit.follow_up_due_at.is_not(None),
-                VeterinaryVisit.follow_up_due_at < now,
+                VeterinaryVisit.follow_up_due_at <= horizon,
             ),
             VeterinaryVisit,
         )
@@ -237,14 +246,23 @@ def list_health_reminders(
         *vaccination_followups,
         *completed_visit_followups,
     ]:
+        overdue = source.follow_up_due_at < now
         items.append(
             HealthReminderResponse(
-                kind="FOLLOW_UP_OVERDUE",
+                kind=(
+                    "FOLLOW_UP_OVERDUE"
+                    if overdue
+                    else "FOLLOW_UP_UPCOMING"
+                ),
                 source_id=source.id,
                 cattle_id=source.cattle_id,
                 due_at=source.follow_up_due_at,
-                title="Health follow-up overdue",
-                overdue=True,
+                title=(
+                    "Health follow-up overdue"
+                    if overdue
+                    else "Health follow-up due"
+                ),
+                overdue=overdue,
             )
         )
 
@@ -254,10 +272,11 @@ def list_health_reminders(
                 TreatmentPlan.status.in_(
                     [TreatmentStatus.PLANNED, TreatmentStatus.ACTIVE]
                 ),
-                or_(
-                    TreatmentPlan.end_date.is_(None),
-                    TreatmentPlan.end_date <= horizon.date(),
-                ),
+                func.coalesce(
+                    TreatmentPlan.end_date,
+                    TreatmentPlan.start_date,
+                )
+                <= horizon.date(),
             ),
             TreatmentPlan,
         )

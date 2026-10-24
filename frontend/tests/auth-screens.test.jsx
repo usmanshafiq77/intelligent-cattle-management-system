@@ -1,9 +1,9 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import { ApiError } from "../src/api/errors";
+import { EnvironmentConfigurationError } from "../src/config/environment";
 import { LoginScreen } from "../src/features/auth/screens/LoginScreen";
 import { SignupScreen } from "../src/features/auth/screens/SignupScreen";
-import { AuthProvider } from "../src/features/auth/context/AuthProvider";
 import { ThemeProvider } from "../src/theme/ThemeProvider";
 
 jest.mock("../src/theme/useAppReducedMotion", () => ({ useAppReducedMotion: () => true }));
@@ -34,7 +34,9 @@ function fillSignup(screen) {
 test("login renders secure, accessible fields and navigation actions", () => {
   const onBack = jest.fn();
   const onCreateAccount = jest.fn();
-  const screen = themed(<LoginScreen onBack={onBack} onCreateAccount={onCreateAccount} api={{ login: jest.fn() }} />);
+  const onVerifyEmail = jest.fn();
+  const onForgotPassword = jest.fn();
+  const screen = themed(<LoginScreen onBack={onBack} onCreateAccount={onCreateAccount} onVerifyEmail={onVerifyEmail} onForgotPassword={onForgotPassword} api={{ login: jest.fn() }} />);
 
   expect(screen.getByRole("header", { name: "Welcome Back" })).toBeTruthy();
   expect(screen.getByTestId("login-email").props.autoComplete).toBe("email");
@@ -43,8 +45,12 @@ test("login renders secure, accessible fields and navigation actions", () => {
   fireEvent.press(screen.getByRole("button", { name: "Show password" }));
   expect(screen.getByTestId("login-password").props.secureTextEntry).toBe(false);
   fireEvent.press(screen.getByRole("link", { name: "Create Account" }));
+  fireEvent.press(screen.getByRole("link", { name: "Forgot Password?" }));
+  fireEvent.press(screen.getByRole("button", { name: "Verify or Resend Email" }));
   fireEvent.press(screen.getByRole("button", { name: "Back to welcome" }));
   expect(onCreateAccount).toHaveBeenCalledTimes(1);
+  expect(onVerifyEmail).toHaveBeenCalledTimes(1);
+  expect(onForgotPassword).toHaveBeenCalledTimes(1);
   expect(onBack).toHaveBeenCalledTimes(1);
 });
 
@@ -74,16 +80,17 @@ test("forms announce required, invalid email, short password, and mismatch error
   expect(signup.getByText("Passwords do not match.")).toBeTruthy();
 });
 
-test("login submits normalized JSON, stores only an ephemeral token, and shows honest success", async () => {
+test("login submits normalized JSON and hands successful completion to navigation", async () => {
   const api = { login: jest.fn().mockResolvedValue({ access_token: "private-token", token_type: "bearer" }) };
   const tokenSetter = jest.fn().mockResolvedValue(undefined);
   const debug = jest.spyOn(console, "debug").mockImplementation(() => {});
   const log = jest.spyOn(console, "log").mockImplementation(() => {});
-  const screen = themed(<LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} api={api} tokenSetter={tokenSetter} />);
+  const onAuthenticated = jest.fn();
+  const screen = themed(<LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} onAuthenticated={onAuthenticated} api={api} tokenSetter={tokenSetter} />);
   fillLogin(screen);
   fireEvent.press(screen.getByTestId("login-submit"));
 
-  await waitFor(() => expect(screen.getByText("Login successful")).toBeTruthy());
+  await waitFor(() => expect(onAuthenticated).toHaveBeenCalledTimes(1));
   expect(api.login).toHaveBeenCalledWith(
     { email: "farmer@example.com", password: "ValidPassword123!" },
     { signal: expect.any(Object) },
@@ -96,29 +103,20 @@ test("login submits normalized JSON, stores only an ephemeral token, and shows h
 
 test("login hands validated backend response to the central AuthProvider", async () => {
   const api = { login: jest.fn().mockResolvedValue({ access_token: "provider-token", token_type: "bearer" }) };
-  const transport = {
-    configureAuthTokenProvider: jest.fn(),
-    setAccessToken: jest.fn().mockResolvedValue(undefined),
-    removeAccessToken: jest.fn().mockResolvedValue(undefined),
-  };
-  const provider = { getToken: jest.fn(), setToken: jest.fn(), removeToken: jest.fn() };
-  const screen = render(
-    <ThemeProvider persistPreference={false}>
-      <AuthProvider transport={transport} tokenProvider={provider}>
-        <LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} api={api} />
-      </AuthProvider>
-    </ThemeProvider>,
-  );
+  const completeLogin = jest.fn().mockResolvedValue({ authenticated: true });
+  const onAuthenticated = jest.fn();
+  const screen = themed(<LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} onAuthenticated={onAuthenticated} api={api} completeLogin={completeLogin} />);
   fillLogin(screen);
   fireEvent.press(screen.getByTestId("login-submit"));
-  await waitFor(() => expect(screen.getByText("Login successful")).toBeTruthy());
-  expect(transport.setAccessToken).toHaveBeenCalledWith("provider-token");
+  await waitFor(() => expect(onAuthenticated).toHaveBeenCalledTimes(1));
+  expect(completeLogin).toHaveBeenCalledWith({ access_token: "provider-token", token_type: "bearer" });
 });
 
 test("login loading state prevents duplicate submissions", async () => {
   let resolveLogin;
   const api = { login: jest.fn(() => new Promise((resolve) => { resolveLogin = resolve; })) };
-  const screen = themed(<LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} api={api} tokenSetter={jest.fn()} />);
+  const onAuthenticated = jest.fn();
+  const screen = themed(<LoginScreen onBack={jest.fn()} onCreateAccount={jest.fn()} onAuthenticated={onAuthenticated} api={api} tokenSetter={jest.fn()} />);
   fillLogin(screen);
 
   fireEvent.press(screen.getByTestId("login-submit"));
@@ -127,11 +125,12 @@ test("login loading state prevents duplicate submissions", async () => {
   expect(screen.getByTestId("login-submit").props.accessibilityState).toEqual({ disabled: true, busy: true });
 
   await act(async () => resolveLogin({ access_token: "token", token_type: "bearer" }));
-  await waitFor(() => expect(screen.getByText("Login successful")).toBeTruthy());
+  await waitFor(() => expect(onAuthenticated).toHaveBeenCalledTimes(1));
 });
 
 test.each([
   [new ApiError("Unauthorized", { status: 401 }), /email or password is incorrect/],
+  [new ApiError("Forbidden", { status: 403, serverMessage: "Email verification required" }), /verify your email before signing in/i],
   [new ApiError("Inactive", { status: 403 }), /currently inactive/],
   [new ApiError("Offline", { code: "NETWORK_ERROR" }), /cannot reach the server/],
   [new ApiError("Server", { status: 500 }), /could not complete authentication/],
@@ -150,6 +149,9 @@ test("signup submits the exact backend payload and shows pending verification", 
       email: "owner@example.com",
       status: "ACTIVE",
       is_email_verified: false,
+      is_system_admin: false,
+      created_at: "2026-10-17T00:00:00Z",
+      verification_delivery_status: "SENT",
     }),
     resendVerification: jest.fn().mockResolvedValue({ detail: "generic" }),
   };
@@ -172,6 +174,25 @@ test("signup submits the exact backend payload and shows pending verification", 
   expect(onLogIn).toHaveBeenCalledTimes(1);
 });
 
+test("signup reports when the account exists but verification delivery failed", async () => {
+  const response = {
+    id: "user-id",
+    full_name: "Farm Owner",
+    email: "owner@example.com",
+    status: "ACTIVE",
+    is_email_verified: false,
+    is_system_admin: false,
+    created_at: "2026-10-17T00:00:00Z",
+    verification_delivery_status: "FAILED",
+  };
+  const screen = themed(<SignupScreen onBack={jest.fn()} onLogIn={jest.fn()} api={{ register: jest.fn().mockResolvedValue(response) }} />);
+  fillSignup(screen);
+  fireEvent.press(screen.getByTestId("signup-submit"));
+
+  await waitFor(() => expect(screen.getByText(/verification email could not be delivered/i)).toBeTruthy());
+  expect(screen.getByRole("button", { name: "Resend Verification Email" })).toBeTruthy();
+});
+
 test("signup maps duplicate and FastAPI field errors", async () => {
   const conflict = themed(<SignupScreen onBack={jest.fn()} onLogIn={jest.fn()} api={{ register: jest.fn().mockRejectedValue(new ApiError("Conflict", { status: 409 })) }} />);
   fillSignup(conflict);
@@ -184,4 +205,41 @@ test("signup maps duplicate and FastAPI field errors", async () => {
   fillSignup(invalid);
   fireEvent.press(invalid.getByTestId("signup-submit"));
   await waitFor(() => expect(invalid.getByText("Backend email error")).toBeTruthy());
+});
+
+test.each([
+  [new EnvironmentConfigurationError("missing API URL"), /API address is not configured correctly/],
+  [new ApiError("Offline", { code: "NETWORK_ERROR", category: "network" }), /cannot reach the server/],
+  [new ApiError("Timeout", { code: "TIMEOUT", category: "network" }), /request timed out/],
+  [new ApiError("Limited", { status: 429, retryAfterSeconds: 30 }), /Try again in 30 seconds/],
+  [new ApiError("Unavailable", { status: 503 }), /temporarily unavailable/],
+])("signup presents actionable safe failure: %s", async (error, expected) => {
+  const api = { register: jest.fn().mockRejectedValue(error) };
+  const screen = themed(<SignupScreen onBack={jest.fn()} onLogIn={jest.fn()} api={api} />);
+  fillSignup(screen);
+  fireEvent.press(screen.getByTestId("signup-submit"));
+  await waitFor(() => expect(screen.getByText(expected)).toBeTruthy());
+  expect(screen.queryByText(error.message)).toBeNull();
+});
+
+test("signup never logs credentials or verification fields", async () => {
+  const password = "ValidPassword123!";
+  const response = {
+    id: "user-id",
+    full_name: "Farm Owner",
+    email: "owner@example.com",
+    status: "ACTIVE",
+    is_email_verified: false,
+    is_system_admin: false,
+    created_at: "2026-10-17T00:00:00Z",
+  };
+  const debug = jest.spyOn(console, "debug").mockImplementation(() => {});
+  const log = jest.spyOn(console, "log").mockImplementation(() => {});
+  const screen = themed(<SignupScreen onBack={jest.fn()} onLogIn={jest.fn()} api={{ register: jest.fn().mockResolvedValue(response) }} />);
+  fillSignup(screen);
+  fireEvent.press(screen.getByTestId("signup-submit"));
+  await waitFor(() => expect(screen.getByText("Account created")).toBeTruthy());
+  expect(JSON.stringify([...debug.mock.calls, ...log.mock.calls])).not.toMatch(new RegExp(`${password}|owner@example\\.com`));
+  debug.mockRestore();
+  log.mockRestore();
 });

@@ -216,6 +216,39 @@ def test_listing_search_filters_and_pagination(client, db_session):
     )
     assert page.status_code == 200
     assert len(page.json()) == 1
+    ordered = client.get(
+        f"/api/v1/farms/{farm.id}/cattle?sort=tag",
+        headers=headers,
+    )
+    assert [item["tag_number"] for item in ordered.json()] == [
+        "DIR-1",
+        "DIR-2",
+    ]
+    summary = client.get(
+        f"/api/v1/farms/{farm.id}/cattle/summary",
+        headers=headers,
+    )
+    assert summary.status_code == 200
+    assert summary.json() == {
+        "total": 2,
+        "female_count": 2,
+        "male_count": 0,
+        "breed_count": 2,
+        "status_counts": {
+            "ACTIVE": 2,
+            "SOLD": 0,
+            "DECEASED": 0,
+            "TRANSFERRED": 0,
+            "MISSING": 0,
+            "ARCHIVED": 0,
+        },
+    }
+    filtered_summary = client.get(
+        f"/api/v1/farms/{farm.id}/cattle/summary?species=BUFFALO",
+        headers=headers,
+    )
+    assert filtered_summary.status_code == 200
+    assert filtered_summary.json()["total"] == 1
 
 
 def test_profile_update_preserves_identity_history_and_explicit_null(client, db_session):
@@ -486,6 +519,74 @@ def test_terminal_lifecycle_status_cannot_be_arbitrarily_reactivated(client, db_
         },
     )
     assert invalid.status_code == 422
+
+
+def test_backdated_or_same_time_lifecycle_transition_is_rejected(
+    client,
+    db_session,
+):
+    owner = create_user(db_session, email="chronology-owner@example.com")
+    farm = create_owned_farm(db_session, owner=owner)
+    cattle_id = register(client, farm, owner).json()["id"]
+    headers = authorization_header(owner)
+    effective = datetime.now(timezone.utc)
+
+    first = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{cattle_id}/lifecycle",
+        headers=headers,
+        json={"new_status": "MISSING", "effective_at": effective.isoformat()},
+    )
+    assert first.status_code == 200
+
+    same_time = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{cattle_id}/lifecycle",
+        headers=headers,
+        json={"new_status": "ACTIVE", "effective_at": effective.isoformat()},
+    )
+    assert same_time.status_code == 422
+    assert "latest lifecycle event" in same_time.json()["detail"]
+
+    db_session.expire_all()
+    animal = db_session.get(Cattle, cattle_id)
+    assert animal.status == CattleStatus.MISSING
+
+
+def test_terminal_cattle_allows_historical_but_not_post_terminal_weight(
+    client,
+    db_session,
+):
+    owner = create_user(db_session, email="terminal-weight-owner@example.com")
+    farm = create_owned_farm(db_session, owner=owner)
+    cattle_id = register(client, farm, owner).json()["id"]
+    headers = authorization_header(owner)
+    terminal_at = datetime.now(timezone.utc)
+    sold = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{cattle_id}/lifecycle",
+        headers=headers,
+        json={"new_status": "SOLD", "effective_at": terminal_at.isoformat()},
+    )
+    assert sold.status_code == 200
+
+    historical = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{cattle_id}/weights",
+        headers=headers,
+        json={
+            "weight_kg": "425",
+            "measured_at": (terminal_at - timedelta(days=1)).isoformat(),
+        },
+    )
+    assert historical.status_code == 201
+
+    post_terminal = client.post(
+        f"/api/v1/farms/{farm.id}/cattle/{cattle_id}/weights",
+        headers=headers,
+        json={
+            "weight_kg": "430",
+            "measured_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    assert post_terminal.status_code == 422
+    assert "after the animal became SOLD" in post_terminal.json()["detail"]
 
 
 def test_parent_links_enforce_farm_species_and_sex(client, db_session):

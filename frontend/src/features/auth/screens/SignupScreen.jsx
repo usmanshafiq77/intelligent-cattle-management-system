@@ -13,6 +13,7 @@ import { AuthSuccessState } from "../components/AuthSuccessState";
 import { AuthSwitchPrompt } from "../components/AuthSwitchPrompt";
 import { useAuthSubmission } from "../hooks/useAuthSubmission";
 import { signupPayload, validateSignup } from "../validation/authValidation";
+import { requestVerificationResend } from "../verificationService";
 
 export function SignupScreen({ onBack, onLogIn, api = authApi }) {
   const { spacing } = useAppTheme();
@@ -63,7 +64,7 @@ export function SignupScreen({ onBack, onLogIn, api = authApi }) {
   const resendVerification = async () => {
     if (!registeredUser || resend.submitting) return;
     setResendFeedback(null);
-    const result = await resend.run((signal) => api.resendVerification(registeredUser.email, { signal }));
+    const result = await resend.run((signal) => requestVerificationResend(api, registeredUser.email, signal));
     if (result.skipped || result.cancelled) return;
     if (result.error) {
       setResendFeedback({ type: "error", message: authErrorMessage(result.error, "signup") });
@@ -77,7 +78,11 @@ export function SignupScreen({ onBack, onLogIn, api = authApi }) {
       {registeredUser ? (
         <AuthSuccessState
           title="Account created"
-          message={registeredUser.is_email_verified ? "Your account is ready." : `Check ${registeredUser.email} for your verification email.`}
+          message={registeredUser.is_email_verified
+            ? "Your account is ready."
+            : registeredUser.verification_delivery_status === "FAILED"
+              ? "Your account was created, but the verification email could not be delivered. Use resend when the email service is available."
+              : `Check ${registeredUser.email} for your verification email.`}
           detail="Registration does not sign you in or create a farm. Continue to login after verifying your email."
           primaryTitle="Go to Log In"
           onPrimary={onLogIn}

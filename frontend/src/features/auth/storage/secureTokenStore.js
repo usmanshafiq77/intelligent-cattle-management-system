@@ -12,8 +12,11 @@ function requireToken(token) {
   return token.trim();
 }
 
-function storageFailure() {
-  return new Error("Secure token storage is unavailable. Please try again.");
+function storageFailure(operation) {
+  const error = new Error("Secure token storage is unavailable. Please try again.");
+  error.code = "SECURE_TOKEN_STORAGE_ERROR";
+  error.operation = operation;
+  return error;
 }
 
 export function createSecureTokenStore({
@@ -39,7 +42,7 @@ export function createSecureTokenStore({
           const token = await secureStore.getItemAsync(key);
           return typeof token === "string" && token.trim() ? token.trim() : null;
         } catch {
-          throw storageFailure();
+          throw storageFailure("read");
         }
       });
     },
@@ -53,7 +56,7 @@ export function createSecureTokenStore({
         try {
           await secureStore.setItemAsync(key, normalized);
         } catch {
-          throw storageFailure();
+          throw storageFailure("write");
         }
       });
     },
@@ -64,7 +67,7 @@ export function createSecureTokenStore({
         try {
           await secureStore.deleteItemAsync(key);
         } catch {
-          throw storageFailure();
+          throw storageFailure("remove");
         }
       });
     },

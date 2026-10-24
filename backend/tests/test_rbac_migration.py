@@ -39,11 +39,37 @@ STEP_18_MILK_PERMISSIONS = {
     "milk.analytics.view",
 }
 
+# Permissions introduced by the feed migration after Step 18.
+FEED_MIGRATION_PERMISSIONS = {
+    "feed.record",
+    "feed.inventory.manage",
+    "feed.schedule.manage",
+    "feed.nutrition.view",
+    "feed.nutrition.manage",
+    "feed.cost.view",
+    "feed.reports.view",
+}
+BREEDING_MIGRATION_PERMISSIONS = {
+    "breeding.heat.record", "breeding.event.record",
+    "breeding.pregnancy.assess", "breeding.calving.record",
+    "breeding.pedigree.manage", "breeding.reports.view",
+}
+FINANCE_MIGRATION_PERMISSIONS = {
+    "finance.income.manage", "finance.expense.manage", "finance.sales.manage",
+    "finance.payments.manage", "finance.budgets.manage", "finance.assets.manage",
+    "finance.reports.view", "finance.audit.view",
+}
+MARKETPLACE_MIGRATION_PERMISSIONS = {code for code in PERMISSION_CODES if code.startswith("marketplace.")}
+
 # Exact permission catalog expected at the RBAC migration revision.
 STEP_16_PERMISSION_CODES = (
     set(PERMISSION_CODES)
     - STEP_17_HEALTH_PERMISSIONS
     - STEP_18_MILK_PERMISSIONS
+    - FEED_MIGRATION_PERMISSIONS
+    - BREEDING_MIGRATION_PERMISSIONS
+    - FINANCE_MIGRATION_PERMISSIONS
+    - MARKETPLACE_MIGRATION_PERMISSIONS
 )
 
 

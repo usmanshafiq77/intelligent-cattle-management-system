@@ -34,7 +34,9 @@ def create_user(
 
 
 def authorization_header(user: User) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
+    return {
+        "Authorization": f"Bearer {create_access_token(user.id, user.token_version)}"
+    }
 
 
 def create_owned_farm(

@@ -28,7 +28,7 @@ test('Expo Router is the application entry and plugin', async () => {
   const appJson = await readJson('app.json');
 
   assert.equal(packageJson.main, 'expo-router/entry');
-  assert.equal(packageJson.dependencies['expo-router'], '~57.0.28');
+  assert.equal(packageJson.dependencies['expo-router'], '~57.0.29');
   assert.ok(appJson.expo.plugins.includes('expo-router'));
   assert.equal(appJson.expo.experiments?.typedRoutes, undefined);
 });
@@ -47,6 +47,38 @@ test('required architecture and routes exist', async () => {
     'app/+not-found.jsx',
     'app/auth/login.jsx',
     'app/auth/signup.jsx',
+    'app/auth/verify-email.jsx',
+    'app/auth/forgot-password.jsx',
+    'app/reset-password.jsx',
+    'app/session.jsx',
+    'app/dashboard.jsx',
+    'app/cattle/index.jsx',
+    'app/cattle/register.jsx',
+    'app/cattle/[id]/index.jsx',
+    'app/cattle/[id]/edit.jsx',
+    'app/feed/index.jsx',
+    'app/feed/inventory.jsx',
+    'app/feed/schedules.jsx',
+    'app/feed/records.jsx',
+    'app/feed/purchases.jsx',
+    'app/feed/alerts.jsx',
+    'app/feed/nutrition.jsx',
+    'app/feed/reports.jsx',
+    'app/breeding/index.jsx',
+    'app/breeding/heat.jsx',
+    'app/breeding/events.jsx',
+    'app/breeding/pregnancy.jsx',
+    'app/breeding/calving.jsx',
+    'app/breeding/offspring.jsx',
+    'app/breeding/pedigree.jsx',
+    'app/breeding/calendar.jsx',
+    'app/breeding/reports.jsx',
+    'app/breeding/settings.jsx',
+    'app/farm/[module].jsx',
+    'app/farm/create.jsx',
+    'app/farm/select.jsx',
+    'app/farm/details.jsx',
+    'app/profile.jsx',
     'app/dev/design-system.jsx',
     'assets/branding/icms-mark.svg',
     'src/components/brand/BrandMark.jsx',
@@ -54,6 +86,39 @@ test('required architecture and routes exist', async () => {
     'src/features/onboarding/screens/WelcomeScreen.jsx',
     'src/features/auth/screens/LoginScreen.jsx',
     'src/features/auth/screens/SignupScreen.jsx',
+    'src/features/auth/screens/SessionScreen.jsx',
+    'src/features/auth/screens/SessionUnavailableScreen.jsx',
+    'src/features/auth/screens/ProfileScreen.jsx',
+    'src/features/auth/screens/VerificationScreen.jsx',
+    'src/features/auth/screens/ForgotPasswordScreen.jsx',
+    'src/features/auth/screens/ResetPasswordScreen.jsx',
+    'src/features/auth/verificationErrors.js',
+    'src/features/farms/farmContracts.js',
+    'src/features/farms/farmValidation.js',
+    'src/features/farms/farmErrors.js',
+    'src/features/farms/context/FarmProvider.jsx',
+    'src/features/farms/components/FarmSelector.jsx',
+    'src/features/farms/screens/FarmCreateScreen.jsx',
+    'src/features/farms/screens/FarmSelectionScreen.jsx',
+    'src/features/farms/screens/FarmDetailsScreen.jsx',
+    'src/features/permissions/permissionCatalog.js',
+    'src/features/permissions/navigationConfig.js',
+    'src/features/permissions/guards.jsx',
+    'src/features/navigation/components/RoleNavigation.jsx',
+    'src/features/navigation/screens/DashboardScreen.jsx',
+    'src/features/navigation/screens/FarmModuleScreen.jsx',
+    'src/features/cattle/cattleContracts.js',
+    'src/features/cattle/cattleErrors.js',
+    'src/features/cattle/cattleOptions.js',
+    'src/features/cattle/hooks/useCattleCollection.js',
+    'src/features/cattle/components/CattleForm.jsx',
+    'src/features/cattle/components/CattlePage.jsx',
+    'src/features/cattle/screens/CattleCreateScreen.jsx',
+    'src/features/cattle/screens/CattleListScreen.jsx',
+    'src/features/cattle/screens/CattleDetailScreen.jsx',
+    'src/features/cattle/screens/CattleEditScreen.jsx',
+    'src/features/auth/context/AuthProvider.jsx',
+    'src/features/auth/storage/secureTokenStore.js',
     'src/features/auth/components/AuthLayout.jsx',
     'src/features/auth/validation/authValidation.js',
     'src/navigation/DevelopmentOnlyRoute.jsx',
@@ -70,10 +135,17 @@ test('required architecture and routes exist', async () => {
     'src/api/cattle.js',
     'src/api/health.js',
     'src/api/milk.js',
+    'src/api/feed.js',
+    'src/api/breeding.js',
+    'src/features/breeding/breedingErrors.js',
+    'src/features/breeding/screens/BreedingScreens.jsx',
+    'src/features/feed/feedErrors.js',
+    'src/features/feed/screens/FeedScreens.jsx',
     'src/config/environment.js',
     'src/components/ui/Screen.jsx',
     'src/features/home/screens/WelcomeScreen.jsx',
     'src/navigation/routes.js',
+    'src/navigation/sessionPolicy.js',
   ];
 
   for (const relativePath of requiredPaths) {
@@ -81,7 +153,7 @@ test('required architecture and routes exist', async () => {
     assert.ok(contents.length > 0, `${relativePath} must not be empty`);
   }
 
-  for (const feature of ['auth', 'farms', 'permissions', 'cattle', 'health', 'milk']) {
+  for (const feature of ['auth', 'farms', 'permissions', 'cattle', 'health', 'milk', 'feed', 'breeding']) {
     const entries = await readdir(path.join(projectRoot, 'src', 'features', feature));
     assert.ok(entries.includes('.gitkeep'), `${feature} feature boundary must exist`);
   }
@@ -131,6 +203,59 @@ test('authentication transport never persists tokens in AsyncStorage', async () 
   );
 
   assert.ok(sources.every((source) => !source.includes('@react-native-async-storage')));
+});
+
+test('session storage uses SecureStore natively and no persistent web storage', async () => {
+  const packageJson = await readJson('package.json');
+  const appJson = await readJson('app.json');
+  const storage = await readFile(path.join(projectRoot, 'src', 'features', 'auth', 'storage', 'secureTokenStore.js'), 'utf8');
+
+  assert.equal(packageJson.dependencies['expo-secure-store'], '~57.0.4');
+  assert.ok(appJson.expo.plugins.includes('expo-secure-store'));
+  assert.match(storage, /SecureStore/);
+  assert.doesNotMatch(storage, /AsyncStorage|localStorage|sessionStorage/);
+});
+
+test('root navigation protects the role-aware dashboard and farm modules', async () => {
+  const layout = await readFile(path.join(projectRoot, 'app', '_layout.jsx'), 'utf8');
+  const sessionRoute = await readFile(path.join(projectRoot, 'app', 'session.jsx'), 'utf8');
+  const dashboardRoute = await readFile(path.join(projectRoot, 'app', 'dashboard.jsx'), 'utf8');
+  const farmRoute = await readFile(path.join(projectRoot, 'app', 'farm', '[module].jsx'), 'utf8');
+  const createFarmRoute = await readFile(path.join(projectRoot, 'app', 'farm', 'create.jsx'), 'utf8');
+
+  assert.match(layout, /Stack\.Protected/);
+  assert.match(layout, /canAccessProtectedRoutes/);
+  assert.match(layout, /verification-unavailable/);
+  assert.match(layout, /FarmProvider/);
+  assert.match(layout, /name="dashboard"/);
+  assert.match(layout, /name="farm\/\[module\]"/);
+  assert.match(layout, /name="farm\/create"/);
+  assert.match(layout, /name="farm\/select"/);
+  assert.match(layout, /name="farm\/details"/);
+  assert.match(layout, /name="cattle\/index"/);
+  assert.match(layout, /name="cattle\/register"/);
+  assert.match(layout, /name="cattle\/\[id\]\/index"/);
+  assert.match(layout, /name="cattle\/\[id\]\/edit"/);
+  assert.match(layout, /name="feed\/index"/);
+  assert.match(layout, /name="feed\/inventory"/);
+  assert.match(layout, /name="feed\/records"/);
+  assert.match(layout, /name="feed\/nutrition"/);
+  assert.match(layout, /name="breeding\/index"/);
+  assert.match(layout, /name="breeding\/pregnancy"/);
+  assert.match(layout, /name="breeding\/pedigree"/);
+  assert.match(sessionRoute, /Redirect/);
+  assert.match(dashboardRoute, /DashboardScreen/);
+  assert.match(farmRoute, /FarmModuleScreen/);
+  assert.match(createFarmRoute, /FarmCreateScreen/);
+  assert.match(layout, /name="profile"/);
+  assert.match(layout, /name="auth\/verify-email"/);
+  const resetPasswordRoute = await readFile(
+    path.join(projectRoot, 'app', 'reset-password.jsx'),
+    'utf8',
+  );
+  assert.match(resetPasswordRoute, /useLocalSearchParams/);
+  assert.match(resetPasswordRoute, /useState\(typeof rawToken/);
+  assert.match(resetPasswordRoute, /setParams\(\{ token: undefined \}\)/);
 });
 
 test('authentication screens contain no insecure persistence or sensitive logging', async () => {
